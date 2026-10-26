@@ -1,0 +1,13 @@
+# Render（https://render.com）用の設定。リポジトリに置いておくと、Render の「Blueprint」から自動で設定されます
+services:
+  - type: web
+    name: runecircle
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/ping
+    autoDeploy: true
+    envVars:
+      - key: RC_HOSTED
+        value: "1"

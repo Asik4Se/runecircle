@@ -1,0 +1,13 @@
+{
+  "name": "runecircle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ルーンサークル（魔法陣にルーンを刻んで戦うローグライト）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

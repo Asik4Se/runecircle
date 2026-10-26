@@ -1,0 +1,2548 @@
+<title>ルーンサークル</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: one narrow phone-first column; the magic circle grid is the centerpiece of every combat screen. Single night palette by design (placeholder art). */
+:root{
+  --night:#15131f; --panel:#1f1c2e; --stone:#2a2640; --line:#3d3760; --ink:#efe8d8; --muted:#a8a0c0; --gold:#d8b45e;
+  --hp:#d9605a; --block:#7cb0e3; --good:#7fcf8c;
+  --fire:#ec7a4f; --thunder:#e6c34a; --water:#56a8e6; --forest:#6cc070; --star:#b991ec; --wind:#63d2b5;
+  --display:"Kaisei Decol","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  background-color:var(--night);
+  background-image:radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb,var(--star) 16%,transparent), transparent 70%);
+  background-attachment:fixed;
+  color:var(--ink); font-family:var(--body); font-size:14px; line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+#app{max-width:480px;margin:0 auto;padding-block:16px 40px;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:default}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;line-height:1.3}
+h2{font-size:20px} h3{font-size:16px}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.num{font-variant-numeric:tabular-nums}
+
+.e-fire{--ec:var(--fire)} .e-thunder{--ec:var(--thunder)} .e-water{--ec:var(--water)} .e-forest{--ec:var(--forest)} .e-star{--ec:var(--star)} .e-wind{--ec:var(--wind)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-weight:700;min-height:44px}
+.btn:hover:not(:disabled){border-color:var(--gold)}
+.btn.primary{background:var(--gold);color:#221c10;border-color:var(--gold)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.on{background:color-mix(in srgb,var(--water) 30%,var(--panel));border-color:var(--water)}
+.btn:disabled{opacity:.45}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row.end{justify-content:flex-end}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;font-size:11.5px;background:var(--stone);border:1px solid var(--line);white-space:nowrap}
+.chip.c-fire{border-color:var(--fire);color:var(--fire)} .chip.c-water{border-color:var(--water);color:var(--water)}
+.chip.c-star{border-color:var(--star);color:var(--star)} .chip.c-thunder{border-color:var(--thunder);color:var(--thunder)} .chip.c-block{border-color:var(--block);color:var(--block)}
+.chip.c-forest{border-color:var(--forest);color:var(--forest)} .chip.c-hp{border-color:var(--hp);color:var(--hp)}
+.chip.relic{border-color:color-mix(in srgb,var(--gold) 60%,transparent);color:var(--gold)}
+button.chip{cursor:pointer}
+
+.bar{display:block;height:8px;border-radius:99px;background:var(--stone);overflow:hidden;border:1px solid var(--line)}
+.bar>span{display:block;height:100%;background:var(--hp);transition:width .25s}
+.bar.blk>span{background:var(--block)}
+
+/* top status */
+.status{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.status .where{font-family:var(--display);font-size:15px}
+.status .bar{grid-column:1/-1}
+.progress{display:flex;gap:3px}
+.progress i{flex:1;height:5px;border-radius:2px;background:var(--stone)}
+.progress i.done{background:var(--gold)}
+.progress i.now{background:color-mix(in srgb,var(--gold) 50%,var(--stone))}
+
+/* title */
+.hero{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding-block:24px 8px}
+.circle{width:min(62vw,240px);aspect-ratio:1;max-width:100%;position:relative}
+.circle i{position:absolute;inset:0;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--gold) 70%,transparent)}
+.circle i:nth-child(2){inset:12%;border-style:dashed;border-color:color-mix(in srgb,var(--star) 70%,transparent);animation:spin 40s linear infinite}
+.circle i:nth-child(3){inset:26%;border-color:color-mix(in srgb,var(--water) 60%,transparent);animation:spin 26s linear infinite reverse}
+.circle i:nth-child(4){inset:38%;background:radial-gradient(circle,color-mix(in srgb,var(--gold) 30%,transparent),transparent 70%);border:none}
+.circle b{position:absolute;font-family:var(--display);font-size:15px;color:var(--gold);transform:translate(-50%,-50%)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hero h1{font-size:34px;letter-spacing:.08em}
+.tag{font-size:11px;letter-spacing:.12em;color:var(--muted)}
+.menu{display:flex;flex-direction:column;gap:10px}
+
+/* character select */
+.chars{display:flex;flex-direction:column;gap:10px}
+.char{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.char.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.char.locked{opacity:.5}
+.char .nm{font-family:var(--display);font-size:17px}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper .btn{min-width:44px;padding:0}
+
+/* map options */
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{display:grid;grid-template-columns:44px 1fr;gap:12px;align-items:center;text-align:left;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--panel)}
+.opt:hover{border-color:var(--gold)}
+.opt .ic{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:18px;background:var(--stone);border:1.5px solid var(--line)}
+.opt.k-elite .ic{border-color:var(--hp);color:var(--hp)} .opt.k-boss .ic{border-color:var(--hp);background:color-mix(in srgb,var(--hp) 25%,var(--stone))}
+.opt.k-camp .ic{border-color:var(--forest);color:var(--forest)} .opt.k-shop .ic{border-color:var(--gold);color:var(--gold)}
+.opt.k-event .ic{border-color:var(--star);color:var(--star)} .opt.k-treasure .ic{border-color:var(--thunder);color:var(--thunder)}
+.opt .nm{font-weight:700;font-size:15px}
+
+/* enemies */
+.enemies{display:flex;gap:8px}
+.enemy{flex:1;min-width:0;text-align:left;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;gap:5px;transition:opacity .3s}
+.enemy.tg{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.enemy.boss{background:color-mix(in srgb,var(--hp) 10%,var(--panel))}
+.enemy.dead{opacity:.35}
+.ename{font-family:var(--display);font-weight:700;font-size:14px;line-height:1.3}
+.intent{align-self:flex-start;font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--stone);color:var(--muted)}
+.intent.atk{background:color-mix(in srgb,var(--hp) 25%,var(--stone));color:#f4b2ad}
+.hpnum{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+
+.player{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.mana{display:flex;gap:5px;align-items:center}
+.mana i{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--water);display:block}
+.mana i.full{background:var(--water);box-shadow:0 0 8px color-mix(in srgb,var(--water) 70%,transparent)}
+
+/* board */
+.board{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px}
+.board.combat{grid-template-columns:repeat(var(--n),minmax(0,1fr)) 38px}
+.cell{position:relative;aspect-ratio:1;max-width:100%;min-width:0;border-radius:10px;padding:4px 2px;
+  border:1.5px solid color-mix(in srgb,var(--ec,var(--line)) 60%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--ec,var(--stone)) 24%,var(--stone)),var(--stone));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;transition:transform .12s,box-shadow .12s}
+.cell.none{background:transparent;border-style:dashed;border-color:var(--line)}
+.cell .empty{font-size:11px;color:var(--muted)}
+.glyph{width:20px;height:20px;border-radius:50%;background:var(--ec);color:#1a1626;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:12px;line-height:1}
+.rn{font-size:clamp(9.5px,2.5vw,11.5px);line-height:1.15;text-align:center;overflow-wrap:anywhere;max-width:100%}
+.rv{font-size:clamp(11px,3vw,13px);font-weight:700;color:var(--ec);font-variant-numeric:tabular-nums;line-height:1.1}
+.rv .g{color:var(--forest);font-size:.85em}
+.view-label{color:var(--gold);margin-bottom:-4px}
+.rv2{font-size:clamp(9px,2.4vw,11px);line-height:1.1;color:var(--ec);opacity:.85;font-variant-numeric:tabular-nums;text-align:center;max-width:100%;overflow-wrap:anywhere}
+.mod{position:absolute;top:2px;right:3px;font-size:9.5px;font-weight:700;padding:0 4px;border-radius:4px;background:var(--gold);color:#221c10}
+.seal{position:absolute;inset:0;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,#000 55%,transparent);font-family:var(--display);font-size:22px;color:var(--star)}
+.cell.hl{transform:scale(1.06);box-shadow:0 0 0 3px var(--gold),0 0 18px color-mix(in srgb,var(--gold) 60%,transparent);z-index:2}
+.cell.sel{box-shadow:0 0 0 3px var(--gold)}
+.cell.ng{opacity:.3}
+.cell.pv{box-shadow:0 0 0 2px color-mix(in srgb,var(--gold) 60%,transparent)}
+.cell.corner-glow::after{content:"";position:absolute;inset:-1px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--thunder) 60%,transparent);pointer-events:none}
+.line{border-radius:10px;border:1px solid var(--gold);background:color-mix(in srgb,var(--gold) 14%,var(--panel));color:var(--gold);font-weight:700;font-size:15px;min-height:38px;display:grid;place-items:center}
+.line:hover:not(:disabled){background:color-mix(in srgb,var(--gold) 30%,var(--panel))}
+.line:disabled{border-color:var(--line);color:var(--muted);background:transparent;opacity:.6}
+.line.used{opacity:.35}
+
+.reserve{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.label{font-size:11.5px;letter-spacing:.08em;color:var(--muted)}
+
+.info{min-height:64px;font-size:13px}
+.info .nm{font-family:var(--display);font-weight:700;font-size:15px}
+.cmp{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:start}
+.cmp-col{min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.5}
+.cmp-col:not(.after){color:var(--muted)}
+.cmp-col.after{padding:8px;margin:-8px;border-radius:10px;background:color-mix(in srgb,var(--good) 8%,transparent)}
+.cmp .arrow{align-self:center;color:var(--gold);font-weight:700;font-size:18px}
+.cmp b.up{color:var(--good)}
+.log{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+
+/* reward cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.rcard{text-align:left;padding:12px;border-radius:14px;border:1.5px solid color-mix(in srgb,var(--ec,var(--gold)) 55%,transparent);background:linear-gradient(170deg,color-mix(in srgb,var(--ec,var(--gold)) 16%,var(--panel)),var(--panel));display:flex;flex-direction:column;gap:6px;min-width:0}
+.rcard:hover:not(:disabled){box-shadow:0 0 0 2px var(--ec,var(--gold))}
+.rcard .top{display:flex;align-items:center;gap:8px}
+.rcard .nm{font-family:var(--display);font-weight:700;font-size:15px;line-height:1.3}
+.rcard .rar{font-size:11px;color:var(--muted)}
+.rcard .rar.x{color:var(--hp)}
+.rcard .d{font-size:12.5px;line-height:1.55}
+.price{font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+.sold{opacity:.4}
+
+.confirm{border-color:var(--hp)}
+
+.float{position:fixed;pointer-events:none;font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;transform:translate(-50%,-50%);animation:rise .9s ease-out forwards;text-shadow:0 1px 3px #000;z-index:50}
+.float.mod{color:var(--gold);font-size:13px;white-space:nowrap} .float.dmg{color:#ffb0a6} .float.blk{color:var(--block)} .float.heal{color:var(--good)} .float.grow{color:var(--forest);font-size:13px} .float.info{color:var(--star);font-size:14px} .float.burn{color:var(--fire)} .float.pdmg{color:var(--hp)}
+@keyframes rise{from{opacity:1;margin-top:0}to{opacity:0;margin-top:-42px}}
+.shake{animation:shake .3s}
+.cell.modpulse::before{content:"";position:absolute;inset:-3px;border-radius:12px;border:2px solid var(--gold);box-shadow:0 0 14px color-mix(in srgb,var(--gold) 70%,transparent);animation:modring .65s ease-out forwards;pointer-events:none}
+@keyframes modring{from{opacity:1;transform:scale(.92)}to{opacity:0;transform:scale(1.35)}}
+.cell.modpulse .mod{animation:modbadge .65s}
+@keyframes modbadge{0%{transform:scale(1)}35%{transform:scale(1.7)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-weight:700;font-size:13px;min-height:36px}
+.tab.on{border-color:var(--ec,var(--gold));color:var(--ec,var(--gold));box-shadow:0 0 0 1px var(--ec,var(--gold))}
+.party{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,118px),1fr));gap:6px}
+.pm{padding:7px 9px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:12.5px;display:flex;flex-direction:column;gap:3px;min-width:0;overflow-wrap:anywhere}
+.pm.act{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.pm.down{opacity:.4}
+.banner{text-align:center;font-family:var(--display);font-weight:700;font-size:15px;padding:6px;border-radius:10px;background:var(--stone);color:var(--muted)}
+.banner.mine{background:color-mix(in srgb,var(--gold) 22%,var(--stone));color:var(--gold)}
+.code{display:block;font-family:var(--display);font-size:30px;letter-spacing:.25em;color:var(--gold)}
+.field{box-sizing:border-box;width:100%;max-width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--stone);color:var(--ink);font:inherit;min-height:44px}
+.field:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.opt.voted{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.opt:disabled{cursor:default}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.roulette{align-items:center;text-align:center}
+.wheelbox{position:relative;width:min(64vw,220px);aspect-ratio:1;max-width:100%}
+.wheel{width:100%;height:100%;border-radius:50%;border:3px solid var(--gold);box-shadow:0 0 24px color-mix(in srgb,var(--gold) 30%,transparent)}
+.pointer{position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:20px solid var(--ink);z-index:2;filter:drop-shadow(0 1px 2px #000)}
+.linkbtn{background:none;border:none;padding:0;color:var(--gold);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,128px),1fr));gap:8px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile b{font-family:var(--display);font-size:20px;line-height:1.3}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th,.tbl td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.tbl thead th{color:var(--muted);font-weight:500;font-size:11.5px;letter-spacing:.04em}
+.tbl tbody tr:last-child th,.tbl tbody tr:last-child td{border-bottom:none}
+.tbl td.num{text-align:right}
+.cell.pv{box-shadow:0 0 0 2px color-mix(in srgb,var(--gold) 75%,transparent)}
+.cell.pv::before{content:attr(data-step);position:absolute;left:4px;top:2px;font-size:10px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+.codex{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.codex .it{padding:8px 10px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-size:12px;min-width:0}
+.codex .it b{font-family:var(--display);display:block;font-size:13px}
+
+/* 戦闘：画面に余白があるときは、ルーンの説明を右、仲間の体力を左に出す（ほかは中央のまま） */
+@media (min-width:1000px){
+  #app{position:relative}
+  /* 上端は敵の枠の上端にそろえる（top は描画時に敵の枠の位置を入れる） */
+  .side-info{position:absolute;top:0;left:calc(100% + 24px);width:min(320px,calc(50vw - 296px));box-sizing:border-box;z-index:5}
+  .side-party{position:absolute;top:0;right:calc(100% + 24px);width:min(260px,calc(50vw - 296px));grid-template-columns:1fr;box-sizing:border-box;z-index:5}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .circle i{animation:none!important}
+  .float{animation-duration:.01s}
+  .shake{animation:none}
+  .cell.modpulse::before,.cell.modpulse .mod{animation-duration:.01s}
+  .wheel{transition:none!important}
+  .cell{transition:none}
+}
+</style>
+
+<div id="app"></div>
+<div id="fx" aria-hidden="true"></div>
+
+<script>
+"use strict";
+/* ============ データ ============ */
+const EL={fire:{n:'炎'},thunder:{n:'雷'},water:{n:'水'},forest:{n:'森'},star:{n:'星'},wind:{n:'風'}};
+const RAR={c:'コモン',r:'レア',e:'エピック',x:'禁呪'};
+
+// ルーンの定義：名前|レア度(c/r/e/x)|効果
+// 効果の書き方：d=ダメージ a=全体ダメージ b=防御 h=回復 br=延焼 ba=全体延焼 dt=起爆 m数x回=連続攻撃 r数x回=ランダム攻撃
+// p=貫通 x=とどめ v=脆弱 va=全体脆弱 w=弱体 s=力ダウン c=浄化 dr=吸収 t=反撃 bd=盾打ち mn=マナ pw=魔力
+// dpt=雷の数比例 dpr=ルーン数比例 gn=周囲の成長 gk=世界樹の仲間の成長 sl=自傷 sp=自分に毒 sn=隣を封印 bs=延焼の伝播 dl=反響 bx=延焼2倍
+// キーワード：ch=連鎖 fl=循環 g=成長 rs=共鳴
+const RSRC={
+fire:`
+火球|c|d6
+火の粉|c|d3,br2
+業火|r|br5
+炎の雨|r|a3,ba1
+爆炎|e|br3,dt2
+不死鳥の羽|e|br3,h2
+血の契約|x|d15,sl3
+火矢|c|m2x3
+熾火|c|br3
+炎の壁|c|b4,br1
+野火|r|br2,bs
+溶岩|r|p7
+灼熱の剣|r|x8
+太陽の欠片|e|ba4
+灰燼|x|br2,dt3,sl4
+火花|c|d4
+小さな炎|c|d3,br1
+焚き火|c|h2,br1
+火打ち石|c|d5
+燃えさし|c|br2,b2
+火炎弾|c|d7,sl1
+炎の拳|c|d5,br1
+赤熱|c|v1,br1
+炎の鞭|c|m3x2
+火の玉連弾|c|m2x2,br1
+点火|c|br4
+煙幕|c|b5
+熱波|c|a2
+火炎放射|c|a2,ba1
+炎の舌|c|d4,br1
+火の鳥|c|r3x2
+燎原の火|c|ba2
+焦熱|c|x5
+火薬|c|d8,sl2
+炎の守り|c|b6
+燻し|c|w1,br1
+かまど|c|h3
+火矢の雨|c|r2x3
+炎の印|c|d3,v1
+暖炉|c|b3,h1
+赤い閃光|c|p4
+火喰い|c|ab1,d3
+燃え上がり|c|br3,d1
+灯火|c|h1,b2
+熱風|c|a1,ba1
+火口|c|d2,dt1
+鍛冶の火|c|d4,b2
+火炎瓶|c|a3,sl1
+炎の吐息|c|d2,br3
+狐火|c|r2x2,br1
+紅蓮|r|br7
+炎帝の拳|r|d10
+劫火|r|ba3,a2
+火竜の息|r|a4,ba1
+大爆発|r|a6,sl3
+炎の槍|r|p9
+火炎旋風|r|r4x3
+灼熱地獄|r|ba2,va1
+燃え盛る盾|r|b7,br2
+熔鉄|r|d6,v2
+焦土|r|a3,br2
+火葬|r|x10
+炎の舞|r|m3x3
+再燃|r|br4,h3
+燃焼加速|r|bx3
+火の精霊|r|d5,br3
+炎の鎧|r|b6,t2
+噴火|r|a5
+炎渦|r|a3,va1
+烈火|r|d12,sl2
+火炎の祝福|r|ab1,b4
+炎の刻印|r|v2,br3
+灼光|r|p6,br2
+炎熱の息吹|r|dr6
+業火の剣|r|d8,br2
+炎の柱|r|d9
+種火|r|br2,mn1
+赤き月|r|ba2,h2
+焼き払い|r|a4
+炎の連鎖|r|m4x2,br1
+火群|r|r3x3,br1
+熱狂|r|ab2,sl3
+灼熱の盾|r|b8
+焦がす風|r|ba2,w1
+溶鉱炉|r|dt2,b4
+炎神の怒り|e|d16
+煉獄|e|ba5,a3
+大火災|e|bs,ba2
+炎竜の咆哮|e|a8,ba2
+不滅の炎|e|br6,h4
+爆炎陣|e|dt3,a2
+太陽の剣|e|x14
+火の鳥の群れ|e|r5x4
+焼尽|e|bx4,d5
+紅蓮の嵐|e|m5x4
+炎の王冠|e|pw2,br3
+灼熱の代償|x|a12,sl6
+自爆|x|a20,sl10
+魂の炎|x|br12,sl5
+破滅の炎|x|br3,dt5,sl6
+`,
+thunder:`
+雷撃|c|ch,d4
+稲妻|c|ch,d3,b2
+天雷|r|ch,d8
+雷鳴|r|ch,a2
+雷神の槌|e|ch,dpt3
+呪雷|x|ch,d12,sp2
+雷光|c|ch,r3x2
+感電|c|ch,d3,w1
+落雷|r|ch,p6
+雷雲|r|ch,va1
+雷槍|r|ch,x6
+嵐の王冠|e|ch,a4
+暴走雷|x|ch,r5x3,sl3
+静電気|c|ch,d2,b2
+火花放電|c|ch,d5
+電撃|c|ch,m2x2
+雷の矢|c|ch,p3
+帯電|c|ch,b4
+電流|c|ch,a1
+閃光|c|ch,w1,d2
+雷鼓|c|ch,d3,b1
+迅雷|c|ch,r2x3
+放電|c|ch,d6,sl1
+雷の盾|c|ch,b5
+痺れ|c|ch,s1,d2
+雷撃矢|c|ch,m3x2
+稲光|c|ch,x4
+雷の蛇|c|ch,m1x4
+雷の種|c|ch,b3,d1
+雷電|c|ch,dpt1
+小雷|c|ch,d3
+雷撃陣|c|ch,a1,b2
+磁力|c|ch,s1,b2
+青い火花|c|ch,p4
+雷の祈り|c|ch,h2
+蓄電|c|b6
+避雷針|c|b4,t1
+雷の爪|c|ch,d3,v1
+轟音|c|ch,w1,b2
+雷の尾|c|ch,r2x2
+電光石火|c|ch,m2x2,b1
+雷の羽|c|ch,b2,h1
+紫電|c|ch,d5
+遠雷|c|ch,d2,a1
+静かな雷|c|d7
+雷の目|c|ch,v1
+雷の刃|c|ch,x5
+雷の守護|c|ch,t2
+雷のしずく|c|ch,h1,b1
+霹靂|r|ch,d10
+雷帝の槍|r|ch,p8
+雷嵐|r|ch,a3
+千鳥|r|ch,m3x3
+雷神の太鼓|r|ch,dpt2,b2
+雷撃の雨|r|ch,r3x4
+天の怒り|r|ch,x9
+電磁の盾|r|ch,b8
+連鎖雷|r|ch,dpt2
+雷霆|r|ch,d12,sl2
+雷光の翼|r|ch,b4,pw1
+麻痺|r|ch,s3
+雷の檻|r|ch,w2,b3
+雷鳴の鎧|r|ch,t3,b3
+雷精|r|ch,d6,mn1
+稲妻斬り|r|ch,m4x2
+雷の審判|r|ch,va1,d4
+雷の泉|r|ch,h3,b2
+雷撃結界|r|ch,a2,b4
+天空の雷|r|ch,r5x2
+雷鳴轟く|r|ch,a4,sl2
+雷の祝福|r|pw1,b5
+雷獣|r|ch,m3x2,w1
+青雷|r|ch,p7
+雷の吸収|r|ch,dr5
+雷の鎖|r|ch,d4,s1
+雷撃の嵐|r|ch,a2,w1
+雷の翼|r|ch,r4x2,b2
+帯電の鎧|r|ch,b6,t1
+雷の柱|r|ch,d9
+神鳴り|e|ch,d18
+雷神降臨|e|ch,dpt5
+万雷|e|ch,r6x4
+雷神の鎧|e|ch,b10,t3
+天雷の嵐|e|ch,a6
+雷光一閃|e|ch,x15
+雷帝の冠|e|ch,pw2,b4
+天罰|e|ch,p12
+雷龍|e|ch,m5x4
+雷撃の極み|e|ch,dpt3,a2
+雷の神殿|e|ch,b6,h4
+嵐の目|e|ch,va2,a3
+雷鳴の王|e|ch,d10,w2
+迅雷の舞|e|ch,m3x5
+雷神の呪い|x|ch,d22,sp3
+禁じられた雷|x|ch,a10,sl5
+暴雷|x|ch,r8x4,sl6
+魂の雷|x|ch,dpt6,sl4
+天を裂く雷|x|ch,p20,sl6
+雷の生贄|x|ch,x20,sl5
+狂雷|x|ch,m6x5,sp3
+`,
+water:`
+水流|c|fl2,b4
+氷の礫|c|fl1,d4
+凍てつく霧|r|v2
+潮の満ち引き|r|fl4
+癒しの泉|r|fl2,h3
+大渦|e|fl5,d7
+泡の盾|c|fl1,b5
+霧雨|c|fl2,c2
+氷槍|r|fl2,p6
+引き波|r|ab1,dr4
+凍結|r|s2,w1
+津波|e|fl3,a4
+深淵の渦|e|fl6,v1
+溺れる者の契約|x|fl9,sl4
+しずく|c|fl1,h2
+水しぶき|c|fl1,d3
+小川|c|fl2,b2
+氷の盾|c|b7
+水の矢|c|fl1,m2x2
+冷気|c|fl1,w1
+氷柱|c|fl1,d5
+波|c|fl2,d2
+さざ波|c|fl3
+雨|c|fl1,a1
+湧き水|c|fl1,h1,b2
+霜|c|fl1,s1
+水の鞭|c|d6
+氷の欠片|c|fl1,r2x2
+霧|c|fl2,w1
+水鏡|c|fl1,b4
+渦潮|c|fl2,d3
+冷たい雨|c|a2
+泉の祈り|c|h3
+氷の牙|c|fl1,p4
+海霧|c|fl2,b2,c1
+水の衣|c|fl1,b3,c1
+氷結の矢|c|fl1,x5
+白波|c|fl2,a1
+清流|c|fl3,c1
+水の壁|c|b5,c1
+小さな渦|c|fl1,v1
+氷の礫連弾|c|fl1,r2x3
+雪|c|fl1,b2,s1
+水滴|c|fl3,b1
+氷の刃|c|fl1,d5,w1
+潤い|c|fl1,h2,c1
+寒波|c|a1,w1
+水の精|c|fl2,h1
+流氷|c|fl1,b4,d1
+引き潮|c|fl1,dr2
+氷河|r|fl2,b10
+大波|r|fl3,a3
+氷の嵐|r|fl2,r3x4
+海神の槍|r|fl2,p9
+永久凍土|r|s3,b4
+水竜|r|fl3,m3x3
+氷結|r|fl1,w2,s1
+深海の圧|r|fl2,x9
+水の加護|r|fl3,h4
+激流|r|fl5,d4
+吹雪|r|fl2,a3,w1
+氷の鎧|r|fl1,b7,t2
+潮騒|r|fl6
+雨乞い|r|fl2,a2,h2
+渦巻く水|r|fl3,dr4
+氷晶|r|fl2,v2,d3
+水の牢|r|fl1,w2,b4
+霧の帳|r|b6,c3
+冷たい月|r|fl2,s2,b2
+海の祝福|r|fl2,ab1
+氷の矢雨|r|fl1,m3x4
+急流|r|fl4,a2
+水の剣|r|fl2,d9
+雹|r|fl1,r4x3
+泉の守護|r|fl2,b5,h2
+凍える吐息|r|fl1,va1,w1
+水底|r|fl3,mn1
+氷の牙城|r|b12
+静かな湖|r|fl3,c3,h1
+大海嘯|e|fl4,a7
+絶対零度|e|fl2,s4,w2
+海神の怒り|e|fl5,p12
+氷の女王|e|fl3,va2,b6
+生命の泉|e|fl4,h7
+深淵|e|fl4,ab2,v2
+氷結の世界|e|fl2,a4,s2
+水龍の舞|e|fl3,m5x4
+潮の王|e|fl6,dr8
+永遠の氷|e|b16,c4
+雨の女神|e|fl4,h3,a3
+凍てつく棺|e|fl2,x16
+渦の王冠|e|fl5,pw2
+海の生贄|x|fl12,sl6
+溺死の呪い|x|fl3,a12,sl5
+凍りつく心臓|x|fl4,s6,sl5
+深海の契約|x|fl6,p20,sl6
+呪いの雨|x|fl2,r6x5,sp3
+黒い潮|x|fl15,sp4
+氷獄|x|fl3,x22,sl6
+水底の王|x|fl8,dr14,sl5
+`,
+forest:`
+芽吹き|c|g1,b3
+茨の鞭|c|g1,d3
+樫の盾|r|g1,b6
+宿り木|r|g1,h1
+世界樹の枝|e|g2,d2,gk1
+根絡み|c|g1,d2,w1
+棘の鎧|c|g1,t3
+種まき|c|b2,gn1
+大樹の守り|r|g2,b4
+盾打ち|r|g1,bd0
+古代樹の目覚め|e|g3,a2
+寄生樹|x|g2,dr6,sn
+若葉|c|g1,h1
+蔓|c|g1,m1x2
+どんぐり|c|g1,d2,b1
+苔|c|g2,b1
+花粉|c|g1,w1
+木の実|c|h3
+樹皮|c|g1,b5
+草笛|c|g1,c1,h1
+棘|c|g1,t2,d1
+根|c|g1,s1
+木の葉|c|g1,r1x2
+花びら|c|g1,h2
+小枝|c|g2,d1
+竹|c|g1,b3,d1
+茸|c|g1,dr2
+蜂|c|g1,m1x3
+薬草|c|c3,h1
+若木|c|g2,b2
+木霊|c|g1,a1
+樹液|c|g1,h1,c1
+茨の壁|c|g1,b3,t1
+落ち葉|c|g1,b4
+森の風|c|g1,a1,b1
+木の盾|c|b7
+野ばら|c|g1,t1,h1
+獣道|c|g1,d4
+枝打ち|c|g1,p2
+土の守り|c|g1,b3,c1
+花の種|c|gn1,h1
+根を張る|c|b2,g3
+葉擦れ|c|g1,w1,b1
+森の囁き|c|g2,h1
+木こり|c|d6
+蔦の鞭|c|g1,m2x2
+花冠|c|g1,b2,h1
+大樹|r|g2,b8
+森の怒り|r|g2,d6
+世界樹の根|r|g2,s2,gk1
+茨の檻|r|g1,w2,t2
+古木|r|g3,b5
+森の精霊|r|g2,h3
+毒茨|r|g1,m2x3,w1
+蔓の鎧|r|g1,b5,t3
+樹海|r|g2,a2
+種の嵐|r|gn2,b3
+森の番人|r|g2,b6,t1
+年輪|r|g4,b2
+花畑|r|g1,h4
+巨木の拳|r|g2,d8
+樹の盾打ち|r|g2,bd2
+茸の胞子|r|g1,va1,w1
+若葉の祝福|r|g1,pw1
+森の泉|r|g2,h2,c2
+落葉の嵐|r|g1,r3x3
+大地の盾|r|b10,c2
+根の罠|r|g2,x7
+森の加護|r|g2,b4,h1
+豊穣|r|gn2,h2
+樹木の槍|r|g2,p7
+森の歌|r|h1,mn1,g1
+棘の嵐|r|g1,t4
+千年樹|r|d1,g5
+森の牙|r|g2,m3x2
+生命の芽|r|g1,dr4
+緑の壁|r|g2,b7
+獣の王|r|g2,d5,w1
+世界樹|e|g4,b8,gk3
+森の王|e|g3,d10
+大地の怒り|e|g3,a5
+森羅万象|e|gn3,h3
+古代の森|e|g3,b6,t3
+樹神|e|g5,d4
+生命の大樹|e|g3,h6
+森の審判|e|g3,x12
+茨の王冠|e|g2,t5,pw1
+千本の蔓|e|g2,m3x5
+大地の盾打ち|e|g3,bd4
+森の祝祭|e|gn2,a3
+精霊の森|e|g3,dr7
+永遠の樹|e|g6,b3
+枯死の呪い|x|g4,a10,sl5
+毒の森|x|g3,va3,sp3
+血の樹|x|g4,dr12,sl6
+呪われた根|x|g6,s5,sn
+腐れの王|x|g5,x18,sl5
+狂い咲き|x|gn5,sl6
+絞め殺しの樹|x|g3,m4x5,sl5
+魂を喰う樹|x|g8,d6,sl6
+`,
+star:`
+星の盾|c|rs1,b3
+流れ星|c|rs1,d3
+魔力の星|r|mn1
+天球儀|r|rs2,b2
+守護星|r|pw1
+隕石|e|rs3,d5
+虚無の星|x|rs4,d4,sn
+星屑|c|rs1,r2x2
+小さな星|c|rs1,h1
+明けの明星|r|b3,pw1
+鏡の星|r|dl
+天の川|r|rs2,a1
+彗星|e|rs2,p6
+堕ちた星|x|rs5,d6,sl5
+星明かり|c|rs1,b2
+きらめき|c|rs1,d2
+星の矢|c|rs1,m1x2
+一番星|c|rs1,p2
+星座の欠片|c|rs1,b2,c2
+夜空|c|b6
+月光|c|h3
+星の砂|c|rs1,r1x3
+輝き|c|rs1,w1
+小惑星|c|d6
+星の鈴|c|rs1,d2,c1
+北極星|c|rs2,b1
+星の涙|c|rs1,h1,c1
+星読み|c|rs1,d1,b1
+流星群|c|rs1,r1x4
+星の灯|c|rs1,t1
+宵の明星|c|b3,h1
+星くず連弾|c|rs1,m1x3
+星の守り|c|b5,c1
+月の盾|c|rs2,b2
+星屑の刃|c|rs1,p3
+白い星|c|rs1,x3
+新星|c|rs2,d1
+星の道|c|rs1,h2
+天体観測|c|rs1,v1
+星座の盾|c|rs1,b1,t1
+赤い星|c|d4,b2
+青い星|c|rs1,b2,h1
+双子星|c|rs1,m2x2
+星の鎖|c|rs1,s1
+星屑の盾|c|rs1,b4
+瞬き|c|rs1,d1,w1
+星の光|c|rs1,a1
+月のしずく|c|rs1,h2
+星の欠片|c|rs2,d2
+銀河の欠片|c|rs1,b1,h1
+星座|r|dpr1
+狩人の星|r|rs2,d4
+天秤座|r|rs2,b4
+星の雨|r|rs1,r3x3
+月の加護|r|rs2,h2
+星の門|r|mn1,b2
+銀河|r|rs2,a2
+北斗|r|rs2,m2x3
+昴|r|rs3,d2
+星の王冠|r|pw1,h2
+天の盾|r|rs3,b2
+星霜|r|rs2,s2
+流星の剣|r|rs2,p5
+星の祈り|r|rs2,c2,h1
+宿星|r|dpr1,b3
+星の審判|r|rs2,x5
+星の吸収|r|rs2,dr3
+天の網|r|rs2,w2
+双星の守り|r|rs2,b3,t1
+月影|r|rs2,v1,d2
+星の嵐|r|rs2,r2x4
+星の鏡|r|dl,b3
+極星|r|rs4,b1
+星界の扉|r|mn1,h2
+星震|r|rs2,a1,w1
+光の柱|r|rs3,p3
+星の羽|r|rs2,h1,b2
+星詠み|r|pw1,c2
+天の矢|r|rs2,m2x2
+超新星|e|rs4,a3
+星々の加護|e|rs3,b6
+天体の運行|e|dpr2
+星の王|e|pw2,b5
+流星雨|e|rs3,r3x5
+銀河の守り|e|rs4,b4
+月の女神|e|rs3,h4
+星界の鏡|e|dl,dl
+天の裁き|e|rs3,p9
+星座の王|e|dpr2,b4
+星の奔流|e|rs4,m2x4
+天球の盾|e|rs5,b2
+星界の門|e|mn2,b3
+明星の剣|e|rs3,x10
+星喰い|x|rs6,dr8,sl5
+暗黒星|x|rs5,a6,sl5
+堕天|x|pw3,sl8
+終焉の星|x|dpr3,sl6
+星の生贄|x|rs6,p10,sl6
+呪われた月|x|rs4,va2,sp3
+虚空|x|rs7,d3,sn
+`,
+wind:`
+そよ風|c|mo1,b3
+突風|c|mo1,d3
+つむじ風|c|mo1,r2x2
+追い風|c|cn,b2
+風の刃|c|mo1,d4
+風切り|c|mo1,p3
+木枯らし|c|mo1,a1
+風の盾|c|b6
+春風|c|mo1,h2
+風見鶏|c|cn,d2
+旋風|c|mo1,m1x3
+疾風|c|mo1,d2,b1
+凪|c|c2,b2
+風の囁き|c|mo1,w1
+砂嵐|c|a1,w1
+風車|c|mo1,b2,d1
+風花|c|mo1,h1,b1
+隙間風|c|mo1,p2
+風の矢|c|mo1,m2x2
+野分|c|d6
+風読み|c|cn,w1
+口笛|c|cn,h1
+風の衣|c|mo1,b4
+颯|c|mo1,x3
+風の鈴|c|c1,d3
+煽り風|c|mo1,v1
+向かい風|c|s1,b2
+竜巻の芽|c|mo1,r1x3
+風の爪|c|mo2,d1
+羽ばたき|c|mo1,b2,h1
+風の通り道|c|cn,b3
+夜風|c|mo1,h1,d1
+潮風|c|mo1,b3,c1
+朝風|c|mo1,d2,h1
+風の輪|c|mo1,a1,b1
+風の歌|c|cn,h2,c1
+吹き返し|c|mo1,dr2
+風の跳躍|c|mo1,d2,b2
+渡り鳥|c|mo1,r1x2,b2
+風紋|c|mo2,b1
+大旋風|r|mo2,a2
+嵐の前触れ|r|cn,v2
+疾風怒濤|r|mo2,m2x3
+暴風|r|mo2,d5
+風神の息吹|r|mo2,a2,b2
+真空波|r|mo2,p5
+風の守り手|r|mo1,b8
+竜巻|r|mo2,r3x3
+颶風|r|mo2,d4,w1
+追い風の加護|r|cn,pw1
+風の舞|r|mo2,b4,h1
+天翔ける刃|r|mo2,x6
+嵐の鎧|r|mo1,b5,t2
+風の祝福|r|cn,b4,h2
+吹き飛ばし|r|mo2,s2
+風の牢|r|mo1,w2,b3
+気流|r|cn,mn1
+風の大鎌|r|mo2,d6
+空裂|r|mo3,d2
+風神の矢|r|mo2,m3x2
+台風の目|r|mo1,va1,a2
+風の吸収|r|mo2,dr4
+旋回|r|cn,d5
+風の翼|r|mo2,b4,d2
+春一番|r|mo2,h3
+かまいたち|r|mo2,m2x4
+大気の盾|r|mo2,b6
+空の道|r|cn,b5,d2
+逆風|r|s3,b3
+風の宴|r|mo2,a1,h2
+雲を裂く|r|mo2,p6
+嵐雲|r|cn,va1
+風神の拳|r|mo2,d7
+迅風|r|mo2,r4x2
+蒼天|r|mo3,b3
+風神|e|mo3,a3
+大竜巻|e|mo3,r4x4
+天空の覇者|e|mo3,d8
+嵐を呼ぶ者|e|cn,va2,a2
+神風|e|mo4,d5
+風の王冠|e|mo2,pw2
+暴風壁|e|mo3,b10
+千の風|e|mo3,m2x6
+空の支配者|e|mo3,x10
+風神の加護|e|cn,b8,h3
+蒼穹の剣|e|mo4,p8
+嵐の舞踏|e|mo3,a2,b4
+疾風迅雷|e|cn,mo3,d6
+天翔ける竜|e|mo3,m4x4
+風の聖域|e|mo2,h6
+大嵐|e|mo3,a4,w1
+破滅の嵐|x|mo4,a10,sl5
+風神の呪い|x|mo5,d14,sp3
+虚空の風|x|mo4,p16,sl6
+狂風|x|mo4,r6x5,sl5
+命を削る風|x|mo3,dr12,sl6
+嵐の生贄|x|cn,mo5,a8,sl6
+黒い竜巻|x|mo5,r5x5,sp3
+天を裂く風|x|mo6,d10,sl6
+風葬|x|mo4,x18,sl5
+`};
+const RUNES={};
+(function(){
+  const MAP={d:'dmg',a:'dmgAll',b:'block',h:'heal',br:'burn',ba:'burnAll',dt:'detonate',p:'pierce',x:'execute',v:'vuln',va:'vulnAll',w:'weakE',s:'strDown',c:'cleanse',dr:'drain',t:'thorns',bd:'blockDmg',mn:'mana',pw:'power',dpt:'dmgPerThunder',dpr:'dmgPerRune',gn:'growNbr',gk:'growKin',sl:'self',sp:'selfPoison'};
+  const FLAG={sn:'sealNeighbor',bs:'burnSpread',dl:'dupLast',cn:'chainNext'};
+  MAP.ab='absorbDebuff';
+  const NOUP=['mana','self','selfPoison'];
+  const upOf=(t,v)=>NOUP.includes(t)?0:t==='blockDmg'?3:['detonate','dmgPerRune','vuln','vulnAll','weakE','strDown','power','growNbr','growKin'].includes(t)?1:Math.max(1,Math.round(v*0.4));
+  for(const el in RSRC){
+    const boost=(t,v)=>v;
+    RSRC[el].trim().split('\n').forEach(line=>{
+      const [n,r,spec]=line.trim().split('|');
+      if(RUNES[n])console.warn('ルーン名が重複:',n);
+      const d={n,e:el,r,fx:[],kw:[]};
+      spec.split(',').forEach(raw=>{
+        const tok=raw.trim();let m;
+        if(tok==='ch'){d.kw.push('chain');return}
+        if((m=tok.match(/^fl(\d+)$/))){d.kw.push('flow');d.flow=+m[1];d.fu=Math.max(1,Math.round(+m[1]*0.4));return}
+        if((m=tok.match(/^g(\d+)$/))){d.kw.push('grow');d.grow=+m[1];return}
+        if((m=tok.match(/^rs(\d+)$/))){d.kw.push('reso');d.reso=+m[1];return}
+        if((m=tok.match(/^mo(\d+)$/))){d.kw.push('momentum');d.mom=+m[1];return}
+        // bx4＝延焼4 ＋ 敵の延焼を2倍（1ターン1回）
+        if((m=tok.match(/^bx(\d+)$/))){const v=+m[1];d.fx.push({t:'burn',v,u:upOf('burn',v)});d.fx.push({t:'burnDouble',v:0});return}
+        if(FLAG[tok]){d.fx.push({t:FLAG[tok],v:0});return}
+        if((m=tok.match(/^(m|r)(\d+)x(\d+)$/))){const v=boost(m[1]==='m'?'multi':'rand',+m[2]);d.fx.push({t:m[1]==='m'?'multi':'rand',v,u:Math.max(1,Math.round(v*0.4)),x:+m[3]});return}
+        if((m=tok.match(/^([a-z]+)(\d+)$/))&&MAP[m[1]]){const t=MAP[m[1]],v=boost(t,+m[2]);d.fx.push({t,v,u:upOf(t,v)});return}
+        console.warn('読めない効果:',n,tok);
+      });
+      RUNES[n]=d;
+    });
+  }
+})();
+// 以前の版のセーブデータ用：英字IDから名前への対応
+const LEGACY={fireball:'火球',ember:'火の粉',inferno:'業火',firerain:'炎の雨',explode:'爆炎',phoenix:'不死鳥の羽',bloodpact:'血の契約',spark:'雷撃',bolt:'稲妻',heavenbolt:'天雷',thunderclap:'雷鳴',hammer:'雷神の槌',cursebolt:'呪雷',stream:'水流',icepebble:'氷の礫',frostmist:'凍てつく霧',tide:'潮の満ち引き',spring:'癒しの泉',maelstrom:'大渦',sprout:'芽吹き',thornwhip:'茨の鞭',oakshield:'樫の盾',mistletoe:'宿り木',worldbranch:'世界樹の枝',starshield:'星の盾',shootingstar:'流れ星',manastar:'魔力の星',armillary:'天球儀',guardstar:'守護星',meteor:'隕石',voidstar:'虚無の星',firearrow:'火矢',coals:'熾火',firewall:'炎の壁',wildfire:'野火',lava:'溶岩',scorchblade:'灼熱の剣',sunshard:'太陽の欠片',ashes:'灰燼',flash:'雷光',shock:'感電',strike:'落雷',stormcloud:'雷雲',thunderspear:'雷槍',stormcrown:'嵐の王冠',wildbolt:'暴走雷',bubble:'泡の盾',drizzle:'霧雨',icespear:'氷槍',undertow:'引き波',freeze:'凍結',tsunami:'津波',abyss:'深淵の渦',drowned:'溺れる者の契約',rootbind:'根絡み',thornarmor:'棘の鎧',sowing:'種まき',greatoak:'大樹の守り',shieldbash:'盾打ち',awakening:'古代樹の目覚め',parasite:'寄生樹',stardust:'星屑',smallstar:'小さな星',morningstar:'明けの明星',mirrorstar:'鏡の星',milkyway:'天の川',comet:'彗星',fallenstar:'堕ちた星'};
+function fixId(id){return RUNES[id]?id:(LEGACY[id]&&RUNES[LEGACY[id]]?LEGACY[id]:'火球')}
+const NOPRIM=['self','selfPoison','sealNeighbor','mana','burnSpread','dupLast','growNbr','growKin','chainNext','absorbDebuff','burnDouble'];
+const NOMULT=['self','selfPoison','sealNeighbor','mana','burnSpread','dupLast','growKin','chainNext','absorbDebuff','burnDouble'];
+const FXT={
+  dmg:v=>`${v}ダメージ`, dmgAll:v=>`敵全体に${v}ダメージ`, burn:v=>`延焼${v}`, burnAll:v=>`敵全体に延焼${v}`,
+  detonate:v=>`敵の延焼×${v}のダメージ（延焼は消える）`, heal:v=>`HP${v}回復`, block:v=>`防御${v}`,
+  self:v=>`自分に${v}ダメージ`, selfPoison:v=>`自分に毒${v}`, vuln:v=>`敵を脆弱${v}（受けるダメージ1.5倍）`,
+  mana:v=>`マナ+${v}（このマスは1ターン1回）`, power:v=>`魔力+${v}（この戦闘中、全ダメージ増加。1ターン1回）`,
+  dmgPerThunder:v=>`${v}×この詠唱で発動した雷の数のダメージ`, sealNeighbor:()=>`隣のルーン1つを封印`,
+  multi:(v,f)=>`${v}ダメージ×${f.x}回`, rand:(v,f)=>`ランダムな敵に${v}ダメージ×${f.x}回`,
+  pierce:v=>`防御を無視して${v}ダメージ`, execute:v=>`${v}ダメージ（HPが半分以下の敵には2倍）`,
+  burnSpread:()=>`狙った敵の延焼と同じ量を、他の敵全員に与える`, weakE:v=>`敵を弱体${v}（敵の攻撒25%減）`,
+  vulnAll:v=>`敵全体を脆弱${v}`, strDown:v=>`敵の力-${v}`, cleanse:v=>`自分の毒を${v}減らし、弱体を1減らす`,
+  drain:v=>`${v}ダメージ、与えたダメージの半分を回復`, thorns:v=>`このターン、攻撃してきた敵に毎回${v}反撃`,
+  growNbr:v=>`周囲8マスの森ルーンの成長+${v}`, blockDmg:v=>`今の防御の値+${v}のダメージ`,
+  dupLast:()=>`同じ詠唱で直前に発動したルーンの効果を、もう一度出す`,
+  burnDouble:()=>`敵の延焼を2倍にする（この効果は1ターン1回）`, absorbDebuff:v=>`吸魔：狙った敵の脆弱・弱体・力低下の値を合わせた数${v>1?`×${v}`:''}だけ魔力を得る。吸ったデバフは消える（延焼は吸わない。このマスは1ターン1回）`, chainNext:()=>`追い風：この詠唱で次に発動する連鎖のルーンは、必ず連鎖する`, growKin:v=>`魔法陣にある、名前に「世界樹」がつく他のルーンすべての成長+${v}`, dmgPerRune:v=>`${v}×魔法陣にあるルーンの数のダメージ`,
+};
+const FXL={dmg:'攻',dmgAll:'全',burn:'焼',burnAll:'焼',heal:'癒',block:'守',vuln:'脆',power:'魔',pierce:'貫',execute:'斬',weakE:'弱',vulnAll:'脆',strDown:'力',cleanse:'浄',drain:'吸',thorns:'棘'};
+
+const MODS={
+  double:{n:'倍化の紋章',s:'×2',d:'このマスのルーンの効果が2倍になる'},
+  spring:{n:'泉の紋章',s:'泉',d:'このマスのルーンが発動するとマナ+1（1ターン1回）'},
+  guard:{n:'守護の紋章',s:'盾',d:'このマスのルーンが発動すると防御+4'},
+  amp:{n:'増幅の紋章',s:'+3',d:'このマスのルーンの主効果+3'},
+  turnU:{n:'北向きの紋章',s:'↑',d:'詠唱がこのマスに来ると、ここから上へ向きを変える（空きマスでも働く）'},
+  turnD:{n:'南向きの紋章',s:'↓',d:'詠唱がこのマスに来ると、ここから下へ向きを変える（空きマスでも働く）'},
+  turnL:{n:'西向きの紋章',s:'←',d:'詠唱がこのマスに来ると、ここから左へ向きを変える（空きマスでも働く）'},
+  turnR:{n:'東向きの紋章',s:'→',d:'詠唱がこのマスに来ると、ここから右へ向きを変える（空きマスでも働く）'},
+  mirror:{n:'反射の紋章',s:'返',d:'詠唱はこのマスで折り返し、来た道を戻る（1回の詠唱で同じマスは2回まで）'},
+  leap:{n:'跳躍の紋章',s:'跳',d:'詠唱はこのマスの次の1マスを飛び越える（空きマスでも働く）'},
+  echo:{n:'反復の紋章',s:'再',d:'このマスのルーンはもう1回発動する（1ターン1回）'},
+  life:{n:'生命の紋章',s:'命',d:'このマスのルーンが発動するとHP+2'},
+  curse:{n:'呪縛の紋章',s:'脆',d:'このマスのルーンが発動すると、狙った敵を脆弱1'},
+  ember:{n:'火種の紋章',s:'焔',d:'このマスのルーンが発動すると、狙った敵に延焼2'},
+};
+const PATH_MODS=['turnU','turnD','turnL','turnR','mirror','leap'];
+// 詠唱の通り道（向きを変える紋章・反射・跳躍を反映）
+function castPath(k,idx,rev){
+  const N=S.run.N;let y,x,dy,dx;
+  if(k==='r'){y=idx;x=rev?N-1:0;dy=0;dx=rev?-1:1}else{x=idx;y=rev?N-1:0;dx=0;dy=rev?-1:1}
+  const path=[],visits={};let guard=0;
+  while(y>=0&&x>=0&&y<N&&x<N&&guard++<N*N*3){
+    const i=y*N+x;visits[i]=(visits[i]||0)+1;if(visits[i]>2)break;path.push(i);
+    const m=S.run.board[i].m;let step=1;
+    if(m==='turnU'){dy=-1;dx=0}else if(m==='turnD'){dy=1;dx=0}else if(m==='turnL'){dy=0;dx=-1}else if(m==='turnR'){dy=0;dx=1}
+    else if(m==='mirror'){dy=-dy;dx=-dx}else if(m==='leap')step=2;
+    y+=dy*step;x+=dx*step;
+  }
+  return path;
+}
+
+const RELICS={
+  hat:{n:'魔導士の帽子',d:'戦闘開始時、防御8'},
+  scale:{n:'火竜の鱗',d:'延焼を与えるとき、さらに+1',els:['fire']},
+  ring:{n:'雷の指輪',d:'連鎖が起きるたび、狙った敵に2ダメージ',els:['thunder']},
+  chalice:{n:'水晶の杯',d:'循環の効果+2',els:['water']},
+  seed:{n:'古木の種',d:'成長の伸びが+1',els:['forest']},
+  starmap:{n:'星図',d:'共鳴の効果が、周囲のルーン1つにつき+1',els:['star']},
+  feather:{n:'風見の羽',d:'疾風の効果が、先に発動した回数1回につき+1',els:['wind']},
+  flask:{n:'火種の小瓶',d:'戦闘の最初のターン、敵全体に延焼3',els:['fire']},
+  pearl:{n:'深海の真珠',d:'水のルーンが発動するたび、防御+1',els:['water']},
+  rod:{n:'避雷針',d:'戦闘開始時、帯電+1',els:['thunder']},
+  kite:{n:'風の凧',d:'疾風は、詠唱の最初から1回分を数えた状態で始まる',els:['wind']},
+  moss:{n:'苔むした石',d:'戦闘開始時、森のルーンすべての成長+2',els:['forest']},
+  lens:{n:'星読みのレンズ',d:'共鳴は、自分自身も周囲のルーン1つとして数える',els:['star']},
+  pendant:{n:'生命のペンダント',d:'最大HP+10（手に入れたときに回復もする）'},
+  coin:{n:'幸運の金貨',d:'旅の商人の値段が2割引き'},
+  thornc:{n:'茨の冠',d:'毎ターン開始時、反撃2（攻撃してきた敵に2ダメージ）'},
+  mirror:{n:'呪いの手鏡',d:'戦闘の最初のターン、敵全体を脆弱2'},
+  amulet:{n:'浄化の護符',d:'毎ターン開始時、毒を2減らし、弱体を1減らす'},
+  quill:{n:'銀の羽ペン',d:'強化済みのルーンの主効果+1'},
+  whet:{n:'魔力の砥石',d:'戦闘開始時、魔力+1'},
+  boots:{n:'旅人の長靴',d:'野営地で休んだときの回復量が1.5倍'},
+  bell:{n:'古びた鐘',d:'精鋭・ボスとの戦闘開始時、防御12'},
+  satchel:{n:'魔導士の鞄',d:'予備の枠が1つ増える'},
+  phoenix:{n:'不死鳥の尾羽',d:'一度だけ、倒れたときにHP30%で立ち上がる（一人用のみ）',boss:true,solo:true},
+  heart:{n:'竜の心臓',d:'敵を倒すたびマナ+1（1ターンに1回）',boss:true},
+  fang:{n:'吸血の牙',d:'敵を倒すたびHP3回復'},
+  purse:{n:'金の財布',d:'ゴールドの獲得量が1.5倍'},
+  iron:{n:'鉄の守り',d:'毎ターン開始時、防御3'},
+  hourglass:{n:'賢者の砂時計',d:'各戦闘の1ターン目、マナ+2'},
+  necklace:{n:'癒しの首飾り',d:'戦闘に勝つたびHP5回復'},
+  lantern:{n:'聖なる灯',d:'受ける毒が半分になる（切り捨て）'},
+  corner:{n:'四隅のお守り',d:'四隅のマスのルーンは2回発動する',boss:true},
+  crystal:{n:'マナの結晶',d:'毎ターンのマナ+1',boss:true},
+  crown:{n:'賢王の冠',d:'同じラインを1ターンに2回まで詠唱できる',boss:true},
+};
+
+const CHARS={
+  apprentice:{n:'魔法使い',hp:60,els:['fire','water'],runes:['火球','火球','火の粉','水流','水流','氷の礫'],d:'1ターン1回、ラインを逆の順番で詠唱できる',lock:null,lockText:''},
+  witch:{n:'雷の魔女',hp:55,els:['thunder','wind'],runes:['雷撃','雷撃','稲妻','稲妻','そよ風','突風'],d:'連鎖2回ごとに帯電+1（この戦闘中、雷のダメージ+帯電）。連鎖が途切れても、その詠唱中に1回だけ続く',lock:'reached2',lockText:'第2幕に到達すると解放'},
+  ranger:{n:'エルフの森番',hp:50,els:['forest','star'],runes:['茨の鞭','茨の鞭','芽吹き','芽吹き','樫の盾','流れ星'],d:'1ターン1回、戦闘中にルーン2つの位置を入れ替えられる（植え替え）',lock:'clears',lockText:'1回クリアすると解放'},
+};
+
+const A=(v,x=1)=>({a:'atk',v,x}),B=v=>({a:'block',v}),P=v=>({a:'poison',v}),W=v=>({a:'weak',v}),ST=v=>({a:'str',v}),H=v=>({a:'heal',v}),HA=v=>({a:'healAll',v}),SE=v=>({a:'seal',v});
+// ギミック用の行動：召喚・自爆・強奪・逃走・味方全体に防御・実体が消える・力をためる
+const SUM=(id,n=1)=>({a:'summon',id,n}),BOOM=v=>({a:'boom',v}),STEAL=v=>({a:'steal',v}),FLEE=()=>({a:'flee'}),BA=v=>({a:'blockAll',v}),PH=()=>({a:'phase'}),CHG=()=>({a:'charge'});
+const MON={
+  slime:{n:'スライム',hp:24,mv:[[A(6)],[A(6)],[B(5),A(3)]]},
+  wolf:{n:'森狼',hp:20,mv:[[A(4,2)],[A(7)]]},
+  moth:{n:'毒蛾',hp:15,mv:[[P(3)],[A(4)]]},
+  goblin:{n:'ゴブリン',hp:26,mv:[[A(8)],[ST(2)],[A(6)]]},
+  mushroom:{n:'キノコ兵',hp:22,mv:[[B(6)],[A(9)]]},
+  ogre:{n:'森のオーガ',hp:62,mv:[[A(12)],[A(6,2)],[ST(2),B(8)]]},
+  familiar:{n:'魔女の使い魔',hp:50,mv:[[P(4),W(1)],[A(10)],[A(5,2)]]},
+  treant:{n:'腐れ根のトレント',hp:130,boss:1,mv:[[P(4)],[A(11)],[B(12),ST(2)],[A(7,2)]]},
+  // ---- 第1幕：ギミックつき ----
+  beetle:{n:'トゲ甲虫',hp:30,spikes:2,mv:[[A(6)],[B(8)],[A(9)]]},
+  bigslime:{n:'大スライム',hp:48,split:1,mv:[[A(8)],[A(5),P(2)]]},
+  thief:{n:'盗賊',hp:30,fixed:1,mv:[[STEAL(7)],[STEAL(7)],[B(8)],[FLEE()]]},
+  mossling:{n:'苔の塊',hp:34,regen:3,mv:[[A(6)],[P(2),B(4)]]},
+  gobchief:{n:'ゴブリンの頭領',hp:72,rage:1,mv:[[ST(2),A(8)],[A(15)],[SUM('goblin')]]},
+  slimeking:{n:'スライムの王',hp:150,boss:1,split:1,mv:[[A(12)],[P(3),A(6)],[A(6,2)],[B(10)]]},
+  gobking:{n:'ゴブリン王',hp:140,boss:1,rage:1,mv:[[SUM('goblin',2)],[A(14)],[ST(3),B(10)],[A(8,2)]]},
+  skeleton:{n:'スケルトン',hp:38,mv:[[A(10)],[B(8),A(4)],[A(10)]]},
+  ghost:{n:'亡霊',hp:32,mv:[[W(2),A(6)],[A(12)]]},
+  ghoul:{n:'グール',hp:44,mv:[[A(7),P(2)],[A(11)]]},
+  archer:{n:'骨の弓兵',hp:30,mv:[[A(5,3)],[B(6)]]},
+  bat:{n:'吸血コウモリ',hp:26,mv:[[A(6),H(6)],[A(8)]]},
+  deathknight:{n:'デスナイト',hp:100,mv:[[A(18)],[B(15),ST(2)],[A(9,2)]]},
+  shaman:{n:'呪術師',hp:80,mv:[[W(2),P(3)],[A(14)],[HA(10)]]},
+  archbishop:{n:'骨の大司祭',hp:200,boss:1,immune:1,mv:[[A(14)],[P(4),W(2)],[A(8,2)],[B(20),ST(2)]]},
+  // ---- 第2幕：ギミックつき ----
+  urn:{n:'呪いの壺',hp:30,fixed:1,mv:[[CHG()],[CHG()],[BOOM(24)]]},
+  shieldbone:{n:'骨の盾兵',hp:36,plate:6,mv:[[A(9)],[BA(6)],[A(12)]]},
+  wraith:{n:'怨霊',hp:34,rage:1,mv:[[A(7)],[W(1),A(5)]]},
+  gravekeeper:{n:'墓守',hp:90,mv:[[SUM('skeleton')],[A(16)],[B(12),A(8)]]},
+  vampire:{n:'吸血公',hp:210,boss:1,regen:6,mv:[[A(12),H(10)],[W(2),A(8)],[A(7,3)],[ST(3)]]},
+  colossus:{n:'骨の巨像',hp:230,boss:1,plate:12,mv:[[CHG()],[A(30)],[A(10,2)],[BA(10),ST(2)]]},
+  gargoyle:{n:'ガーゴイル',hp:55,mv:[[B(12)],[A(16)]]},
+  scout:{n:'魔族の斥候',hp:48,mv:[[A(9,2)],[SE(1),A(6)]]},
+  eye:{n:'魔眼',hp:40,mv:[[SE(2)],[A(12)]]},
+  shadowmage:{n:'影の魔導士',hp:50,mv:[[W(2),A(8)],[A(18)]]},
+  warlord:{n:'魔将バルグ',hp:160,mv:[[A(24)],[A(12,2)],[ST(3),B(15)]]},
+  twinA:{n:'双子の魔女・姉',hp:80,mv:[[A(10),P(2)],[HA(10)]]},
+  twinB:{n:'双子の魔女・妹',hp:80,mv:[[HA(10)],[A(10),W(1)]]},
+  dragon:{n:'封印の魔竜',hp:320,boss:1,mv:[[SE(3)],[A(22)],[A(9,3)],[B(25),ST(3)],[A(35)]]},
+  // ---- 第3幕：ギミックつき ----
+  shade:{n:'影の分身',hp:44,mv:[[PH(),A(10)],[A(14)]]},
+  priest:{n:'魔族の祭司',hp:50,ritual:2,mv:[[A(9)],[W(1),A(6)]]},
+  golem:{n:'守護ゴーレム',hp:70,plate:8,mv:[[BA(12)],[A(15)]]},
+  worm:{n:'魔界の蟲',hp:46,spikes:3,mv:[[A(8),P(3)],[A(13)]]},
+  shadowknight:{n:'影の騎士',hp:140,mv:[[PH(),ST(2)],[A(26)],[A(10,2)]]},
+  lich:{n:'不死の魔導王',hp:330,boss:1,ritual:2,regen:5,mv:[[SUM('shade')],[A(24)],[SE(2),A(12)],[A(8,3)]]},
+  abyss:{n:'深淵の巨人',hp:360,boss:1,spikes:4,plate:15,mv:[[A(30)],[BA(20),ST(3)],[A(12,3)],[CHG()],[A(40)]]},
+};
+const ENC=[
+  {easy:[['slime'],['wolf'],['moth','moth'],['beetle'],['mossling']],normal:[['slime','moth'],['goblin'],['mushroom','wolf'],['wolf','wolf'],['goblin','moth'],['bigslime'],['thief','wolf'],['beetle','moth'],['mossling','goblin']],elite:[['ogre'],['familiar','moth'],['gobchief']],bosses:['treant','slimeking','gobking']},
+  {easy:[['skeleton'],['ghost'],['bat','bat'],['wraith'],['shieldbone']],normal:[['skeleton','archer'],['ghoul','bat'],['ghost','archer'],['ghoul'],['skeleton','ghost'],['urn','skeleton'],['shieldbone','archer'],['wraith','bat'],['urn','ghoul']],elite:[['deathknight'],['shaman','skeleton'],['gravekeeper']],bosses:['archbishop','vampire','colossus']},
+  {easy:[['gargoyle'],['eye'],['shade'],['priest']],normal:[['scout','eye'],['shadowmage','gargoyle'],['scout','scout'],['shadowmage'],['gargoyle','eye'],['golem','scout'],['worm'],['shade','priest'],['worm','eye'],['golem','shadowmage']],elite:[['warlord'],['twinA','twinB'],['shadowknight']],bosses:['dragon','lich','abyss']},
+];
+// この冒険で各幕に出るボス（オンラインは部屋で共通）
+function bossOf(a){const r=S.run;const L=ENC[a].bosses;const k=r&&r.bosses&&r.bosses[a];return L.includes(k)?k:L[0]}
+function pickBosses(seed){return ENC.map((E,a)=>E.bosses[seed!=null?Math.floor(seed/Math.pow(7,a))%E.bosses.length:Math.floor(Math.random()*E.bosses.length)])}
+const ACTS=[{n:'迷いの森',len:12},{n:'古城の地下墓所',len:14},{n:'魔導の塔・頂上',len:14}];
+const NODES={
+  battle:{n:'戦闘',ic:'戦',d:'魔物と戦う。報酬はルーン3択'},
+  elite:{n:'精鋭',ic:'強',d:'強敵。報酬は紋章とレア以上のルーン'},
+  camp:{n:'野営地',ic:'休',d:'HPを回復するか、ルーンを1つ強化する'},
+  shop:{n:'旅の商人',ic:'商',d:'ルーン・秘宝・紋章を買える'},
+  event:{n:'古の遺跡',ic:'？',d:'何かが起こる'},
+  treasure:{n:'宝箱',ic:'宝',d:'秘宝を1つ手に入れる'},
+  boss:{n:'ボス',ic:'王',d:''},
+};
+const RW={normal:{c:60,r:30,e:9,x:1},elite:{c:0,r:70,e:27,x:3}};
+const PRICE={c:45,r:75,e:120,x:90};
+// 敵の強さの調整値：hp=HP倍率 atk=攻撃・防御・毒・回復の倍率 floor=1階進むごとのHP上昇（ボス以外）
+const DIFF={hp:1.9,atk:1.5,floor:0.03,eliteHp:1.5,eliteAtk:1.2,bossHp:1.7,bossAtk:1.25,
+  actHp:[1,1.35,1.7],actAtk:[1,1.2,1.4]}; // 幕ごとの上乗せ（第1幕・第2幕・第3幕）
+
+/* ============ 保存 ============ */
+const MK='runecircle_meta_v1', RK='runecircle_run_v1';
+function load(k){try{const s=localStorage.getItem(k);return s?JSON.parse(s):null}catch(e){return null}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function drop(k){try{localStorage.removeItem(k)}catch(e){}}
+const META_DEF=()=>({clears:0,reached2:false,maxCurse:0,runs:0,bestHit:0,kills:0,bestReach:-1,hist:[],byChar:{},byCurse:{},seen:{runes:{},mons:{},relics:{}}});
+const newStat=()=>({runs:0,clears:0,reach:-1,best:0,kills:0});
+function addStat(o,x){o.runs++;if(x.win)o.clears++;o.reach=Math.max(o.reach,x.win?999:x.act*100+x.floor);o.best=Math.max(o.best,x.best||0);o.kills+=x.kills||0}
+const meta=META_DEF();
+// 読み込んだ進行度を、いまの版の形にそろえる
+function fixMeta(src){
+  for(const k of Object.keys(meta))delete meta[k];
+  Object.assign(meta,META_DEF(),src||{});
+  delete meta.unlockAll;if(!Array.isArray(meta.hist))meta.hist=[];if(!meta.byChar||typeof meta.byChar!=='object')meta.byChar={};
+  if(!meta.byCurse||typeof meta.byCurse!=='object')meta.byCurse={};
+  // 呪いLv別の集計が無い古いデータは、残っている履歴から作る
+  if(!Object.keys(meta.byCurse).length&&meta.hist.length){for(const x of meta.hist.slice().reverse()){const L=meta.byCurse[x.curse]=meta.byCurse[x.curse]||Object.assign(newStat(),{chars:{}});addStat(L,x);L.chars[x.char]=L.chars[x.char]||newStat();addStat(L.chars[x.char],x)}}
+  meta.seen=Object.assign({runes:{},mons:{},relics:{}},meta.seen||{});
+  for(const k of Object.keys(meta.seen.runes)){if(!RUNES[k]){delete meta.seen.runes[k];if(LEGACY[k])meta.seen.runes[LEGACY[k]]=1}}
+}
+fixMeta(load(MK));
+// データの初期化（続きから・図鑑・戦績・解放状況・呪いLvをすべて消す）
+function resetAll(){drop(MK);drop(RK);for(const k of Object.keys(meta))delete meta[k];Object.assign(meta,META_DEF());S.run=null;S.cb=null;S.ui.char='apprentice';S.ui.curse=0;S.ui.rlv='all';S.ui.ctab='fire';saveMeta()}
+function saveMeta(){meta.saveAt=Date.now();store(MK,meta);pushLocal()}
+/* ---- フォルダへのセーブ ----
+   このパソコンで start.bat（server.js）が動いていれば、進行度をそのフォルダの save/progress.json にも保存する。
+   ほかの人のURLで遊んでいても、自分のパソコンのサーバーへ保存しにいく。 */
+const LOCAL={base:null,state:'checking'};
+function fetchT(u,o,ms){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms);return fetch(u,Object.assign({},o,{signal:ac.signal})).finally(()=>clearTimeout(t))}
+async function localSaveInit(){
+  const cands=[];
+  try{if(/^https?:$/.test(location.protocol)&&/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))cands.push(location.origin)}catch(e){}
+  for(const u of ['http://localhost:8080','http://127.0.0.1:8080'])if(!cands.includes(u))cands.push(u);
+  for(const base of cands){
+    try{const res=await fetchT(base+'/api/save',{cache:'no-store'},1500);if(!res.ok)continue;const j=await res.json();if(!j||j.app!=='runecircle-save')continue;
+      LOCAL.base=base;LOCAL.state='ok';adoptLocal(j.data);return}catch(e){}
+  }
+  LOCAL.state='none';if(['title','online','lobby'].includes(S.screen))render();
+}
+function adoptLocal(d){
+  const fileAt=d&&d.meta&&d.meta.saveAt||0,myAt=meta.saveAt||0;
+  if(fileAt>myAt){
+    // フォルダの方が新しい：こちらに読み込む
+    fixMeta(d.meta);store(MK,meta);
+    if(d.nick&&!S.ui.nick){S.ui.nick=d.nick;try{localStorage.setItem('runecircle_nick',d.nick)}catch(e){}}
+  }else if(myAt>fileAt)pushLocal();
+  if(['title','chars','records','codex','online','lobby'].includes(S.screen))render();
+}
+let pushTimer=null;
+function pushLocal(){
+  if(LOCAL.state!=='ok')return;clearTimeout(pushTimer);
+  pushTimer=setTimeout(()=>{fetch(LOCAL.base+'/api/save',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({data:{meta,nick:S.ui.nick||''}})}).catch(()=>{})},300);
+}
+function saveNote(){
+  if(LOCAL.state==='ok')return LOCAL.base===(typeof location!=='undefined'&&location.origin)?'データはこのブラウザと、フォルダの save/progress.json に保存されます。':'データは、このパソコンのフォルダ（save/progress.json）にも保存されています。';
+  if(NET.hosted)return 'データはこのブラウザに保存されます（同じブラウザで開けば続きから遊べます）。';
+  if(LOCAL.state==='none'&&NET.mode==='server')return 'データはこのブラウザにだけ保存されます。ゲームのフォルダを持っている人は、自分の start.bat（Macは start-mac.command）を起動しておくと、このURLで遊んでも進行度がフォルダに保存されます。';
+  return 'データはこのブラウザに保存されます。';
+}
+function saveRun(){if(S.run&&!S.run.online)store(RK,S.run)}
+
+/* ============ 状態 ============ */
+const S={screen:'title',run:null,cb:null,ui:{sel:null,char:'apprentice',curse:0,confirm:false},queue:[],reward:null,editMode:null,editNote:'',pendingRune:null,pendingMod:null,after:null,cancel:null,evResult:null,endInfo:null};
+
+/* ============ 乱数（シード付き） ============ */
+function rng(){const r=S.run;r.rs=(r.rs+0x6D2B79F5)|0;let t=r.rs;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}
+function pick(a){return a[Math.floor(rng()*a.length)]}
+function pickW(o){let tot=0;for(const k in o)tot+=o[k];let x=rng()*tot;for(const k in o){x-=o[k];if(x<0)return k}return Object.keys(o)[0]}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const has=k=>!!S.run&&S.run.relics.includes(k);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ============ ルーン共通 ============ */
+function mkRune(id){return{id,u:S.run.uid++,up:false,g:0}}
+function primIdx(d){return d.fx.findIndex(f=>!NOPRIM.includes(f.t))}
+const GROW_MULT=2; // 森の成長はすべて2倍で伸びる
+function growAmt(d){return (d.grow||0)*GROW_MULT+(has('seed')?1:0)}
+function descRune(d,inst){
+  const p=primIdx(d);
+  const parts=d.fx.map((f,j)=>{let v=f.v+(inst&&inst.up?(f.u||0):0);if(inst&&j===p)v+=inst.g;return FXT[f.t](v,f)});
+  const kw=d.kw||[];const lines=[];
+  // 追い風・吸魔は別の行に出す
+  const own=[];for(let j=d.fx.length-1;j>=0;j--)if(['chainNext','absorbDebuff','burnDouble'].includes(d.fx[j].t))own.unshift(parts.splice(j,1)[0]);
+  if(parts.length)lines.push(parts.join('、'));
+  own.forEach(t=>lines.push(t));
+  if(kw.includes('chain'))lines.push('連鎖：直前に発動したルーンも雷なら、もう一度発動');
+  if(kw.includes('flow'))lines.push(`循環：同じ詠唱で次に発動するルーンの主効果+${d.flow+(inst&&inst.up?d.fu:0)+(has('chalice')?2:0)}`);
+  if(kw.includes('grow'))lines.push(`成長：発動するたび、この戦闘中だけ主効果+${growAmt(d)}`);
+  if(kw.includes('reso'))lines.push(`共鳴：周囲8マスのルーン1つにつき主効果+${d.reso+(has('starmap')?1:0)}`);
+  if(kw.includes('momentum'))lines.push(`疾風：同じ詠唱でこれより先に発動した回数1回につき主効果+${d.mom+(has('feather')?1:0)}`);
+  return lines;
+}
+// 主効果以外の効果をマスに小さく出すための短い表記
+function fxShort(f,v){
+  switch(f.t){
+    case 'multi':return '攻'+v+'×'+f.x;case 'rand':return '乱'+v+'×'+f.x;
+    case 'detonate':return '爆×'+v;case 'dmgPerThunder':return '雷×'+v;case 'dmgPerRune':return '陣×'+v;case 'blockDmg':return '盾+'+v;
+    case 'self':return '自傷'+v;case 'selfPoison':return '自毒'+v;case 'mana':return 'マナ+'+v;
+    case 'sealNeighbor':return '封印';case 'burnSpread':return '伝播';case 'dupLast':return '反響';case 'burnDouble':return '焼×2';case 'chainNext':return '追い風';case 'absorbDebuff':return '吸魔'+v;
+    case 'burnAll':return '全焼'+v;case 'vulnAll':return '全脆'+v;case 'strDown':return '力-'+v;case 'growNbr':return '育+'+v;case 'growKin':return '樹+'+v;
+  }
+  return (FXL[f.t]||'')+v;
+}
+function tileSub(d,inst){
+  const p=primIdx(d);const skip=p>=0?p:d.fx.findIndex(f=>['mana','burnSpread','dupLast','chainNext','absorbDebuff'].includes(f.t));
+  return d.fx.map((f,j)=>j===skip?'':fxShort(f,f.v+(inst&&inst.up?(f.u||0):0))).filter(Boolean).join(' ');
+}
+function tileVal(d,inst){
+  const p=primIdx(d);
+  if(p<0){
+    if(d.fx[0]&&d.fx[0].t==='mana')return 'マナ+1';
+    if(d.fx[0]&&d.fx[0].t==='burnSpread')return '伝播';
+    if(d.fx[0]&&d.fx[0].t==='dupLast')return '反響';
+    if(d.fx[0]&&d.fx[0].t==='chainNext')return '追い風';
+    if(d.fx[0]&&d.fx[0].t==='absorbDebuff')return '吸魔'+(d.fx[0].v+(inst&&inst.up?(d.fx[0].u||0):0));
+    if((d.kw||[]).includes('flow'))return '循'+(d.flow+(inst.up?d.fu:0));
+    return '';
+  }
+  const f=d.fx[p];const v=f.v+(inst.up?(f.u||0):0)+inst.g;
+  if(f.t==='detonate')return '爆×'+v;
+  if(f.t==='dmgPerThunder')return '雷×'+v;
+  if(f.t==='multi')return '攻'+v+'×'+f.x;
+  if(f.t==='rand')return '乱'+v+'×'+f.x;
+  if(f.t==='blockDmg')return '盾+'+v;
+  if(f.t==='dmgPerRune')return '陣×'+v;
+  return FXL[f.t]+v;
+}
+function allRunes(){const r=S.run;const out=[];r.board.forEach((c,i)=>{if(c.r)out.push({loc:'b',i,inst:c.r})});r.reserve.forEach((x,i)=>{if(x)out.push({loc:'r',i,inst:x})});return out}
+function instAt(s){if(!s)return null;if(s.loc==='b')return S.run.board[s.i].r;if(s.loc==='r')return S.run.reserve[s.i];if(s.loc==='p')return S.pendingRune;if(s.loc==='t')return(S.run.tray||[])[s.i]||null;return null}
+function setAt(s,v){if(s.loc==='b')S.run.board[s.i].r=v;else if(s.loc==='r')S.run.reserve[s.i]=v;else if(s.loc==='t'&&S.run.tray)S.run.tray[s.i]=v}
+function seeRune(id){meta.seen.runes[id]=1}
+function runeOfRar(r){const els=S.run?CHARS[S.run.char].els:Object.keys(EL);return pick(Object.keys(RUNES).filter(k=>RUNES[k].r===r&&els.includes(RUNES[k].e)))}
+function rollRunes(n,t){const out=[];let g=0;while(out.length<n&&g++<80){const id=runeOfRar(pickW(RW[t]));if(!out.includes(id))out.push(id)}out.forEach(seeRune);saveMeta();return out}
+// 使っている魔法使いで効果のある秘宝か（属性が合わない秘宝・オンラインで効かない秘宝は出さない）
+function relicOk(k){const R=RELICS[k],r=S.run;if(!R)return false;if(R.els&&!R.els.some(e=>CHARS[r.char].els.includes(e)))return false;if(R.solo&&r.online)return false;return true}
+function rollRelics(n,boss){
+  const own=S.run.relics;
+  let pool=Object.keys(RELICS).filter(k=>!own.includes(k)&&(boss||!RELICS[k].boss)&&relicOk(k));
+  if(boss){pool=[...shuffle(pool.filter(k=>RELICS[k].boss)),...shuffle(pool.filter(k=>!RELICS[k].boss))]}else pool=shuffle(pool);
+  return pool.slice(0,n);
+}
+function addRelic(id){if(!id)return;const r=S.run;r.relics.push(id);meta.seen.relics[id]=1;saveMeta();
+  // 手に入れたときに効く秘宝
+  if(id==='pendant'){r.maxHp+=10;r.hp+=10}
+  if(id==='satchel')r.reserve.push(null);
+  if(id==='coin'&&r.shop){r.shop.runes.concat(r.shop.relics,[r.shop.mod]).forEach(it=>{if(!it.sold)it.p=Math.round(it.p*0.8)})}
+}
+// 魔法陣の空きマスか予備に空きがあるか
+const hasSpace=()=>!!S.run&&(S.run.reserve.some(x=>!x)||S.run.board.some(c=>!c.r));
+const MOVE_MOD_COST=150; // 商人で紋章の位置を変える料金
+const FULL_NOTE='魔法陣と予備に空きがないため、新しいルーンは受け取れない。旅の商人でルーンを処分すると空きができる。';
+function give(id,after){
+  const r=S.run;if(!r)return after();flushTray();const inst=mkRune(id);seeRune(id);saveMeta();
+  if(!hasSpace()){log('空きがないため受け取れなかった');return after()}
+  r.tray=[inst];saveRun();
+  openPlace(after,`「${RUNES[id].n}」を手に入れた。置く場所を選ぼう`);
+}
+// まだ置いていないルーン（手持ち）を、空いているマス→予備の順に置く
+function flushTray(){
+  const r=S.run;if(!r||!r.tray)return;
+  r.tray.forEach((x,k)=>{if(!x)return;const bi=r.board.findIndex(c=>!c.r);if(bi>=0){r.board[bi].r=x;r.tray[k]=null;return}const ri=r.reserve.findIndex(y=>!y);if(ri>=0){r.reserve[ri]=x;r.tray[k]=null}});
+  if(r.tray.every(x=>!x))r.tray=null;
+}
+const trayLeft=()=>S.run&&S.run.tray?S.run.tray.filter(Boolean).length:0;
+function openPlace(after,note){
+  openEdit('place',()=>{if(S.run){flushTray();S.run.tray=null;saveRun()}after()},null,note);
+  const k=((S.run&&S.run.tray)||[]).findIndex(Boolean);if(k>=0){S.ui.sel={loc:'t',i:k};render()}
+}
+// ゲーム開始時：初期のルーンを手持ちに入れて、配置を決めてもらう
+function beginSetup(after){
+  const r=S.run;r.tray=r.board.map(c=>c.r).filter(Boolean);r.board.forEach(c=>{c.r=null});saveRun();
+  openPlace(after,'初期のルーンを、好きなマスに配置しよう');
+}
+function openEdit(mode,after,cancel,note){S.editMode=mode;S.after=after;S.cancel=cancel||null;S.editNote=note||'';S.ui.sel=null;S.ui.err=null;goto('edit')}
+function expandBoard(){
+  const r=S.run,N=r.N,M=N+1;const nb=[];
+  for(let i=0;i<M*M;i++)nb.push({r:null,m:null});
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)nb[y*M+x]=r.board[y*N+x];
+  r.board=nb;r.N=M;
+}
+
+/* ============ ラン進行 ============ */
+function makeRun(charId,curse,online){
+  const ch=CHARS[charId];const seed=(Math.random()*4294967296)>>>0;
+  S.run={seed,rs:seed|0,bosses:pickBosses(),char:charId,curse,hp:ch.hp,maxHp:ch.hp,gold:60,act:0,floor:0,N:3,board:[],reserve:[null,null,null],relics:[],opts:null,pending:null,shop:null,ev:null,uid:1,online:!!online,stats:{kills:0,bestHit:0,turns:0}};
+  for(let i=0;i<9;i++)S.run.board.push({r:null,m:null});
+  ch.runes.forEach((id,i)=>{S.run.board[ch.pos?ch.pos[i]:i].r=mkRune(id);seeRune(id)});
+  return S.run;
+}
+function newRun(charId,curse){makeRun(charId,curse,false);meta.runs++;saveMeta();saveRun();beginSetup(()=>goto('map'))}
+function genOpts(){
+  const r=S.run,len=ACTS[r.act].len,f=r.floor;
+  if(f===len-1)return['boss'];
+  if(f===0)return['battle'];
+  if(f===len-2)return['camp'];
+  if(f===Math.floor(len/2))return['treasure'];
+  const n=rng()<0.5?2:3;const out=[];let g=0;
+  while(out.length<n&&g++<60){const t=pickW({battle:45,event:18,camp:12,elite:f>=3?10:0 /* 各幕の1〜3階は精鋭（強敵）を出さない */,shop:10});if(!out.includes(t))out.push(t)}
+  return out;
+}
+function chooseNode(t){const r=S.run;r.pending=t;r.opts=null;saveRun();startNode(t)}
+function startNode(t){
+  const r=S.run;
+  if(t==='battle'||t==='elite'||t==='boss')return startCombat(t);
+  if(t==='camp')return goto('camp');
+  if(t==='shop'){if(!r.shop)genShop();saveRun();return goto('shop')}
+  if(t==='event'){if(!r.ev)r.ev=pick(EVENTS).id;S.evResult=null;saveRun();return goto('event')}
+  if(t==='treasure'){const id=rollRelics(1,false)[0];S.reward={relic:id};addRelic(id);return goto('treasure')}
+}
+function finishNode(){
+  const r=S.run;const len=ACTS[r.act].len;
+  if(r.online){r.pending=null;r.shop=null;r.ev=null;netDone();goto('wait');return}
+  r.pending=null;r.shop=null;r.ev=null;r.floor++;
+  if(r.floor>=len){r.act++;r.floor=0;if(r.act>=1&&!meta.reached2){meta.reached2=true;saveMeta()}}
+  saveRun();goto('map');
+}
+function endRun(win){
+  const r=S.run;
+  if(win){meta.clears++;meta.maxCurse=Math.max(meta.maxCurse,Math.min(10,r.curse+1))}
+  // 戦績に記録
+  const reach=win?999:r.act*100+r.floor;
+  meta.hist.unshift({t:Date.now(),char:r.char,win,act:r.act,floor:r.floor,curse:r.curse,kills:r.stats.kills,best:r.stats.bestHit,turns:r.stats.turns,online:!!r.online});
+  meta.hist=meta.hist.slice(0,50);
+  const bc=meta.byChar[r.char]=meta.byChar[r.char]||{runs:0,clears:0,reach:-1,best:0,kills:0};
+  bc.runs++;if(win)bc.clears++;bc.reach=Math.max(bc.reach,reach);bc.best=Math.max(bc.best,r.stats.bestHit);bc.kills+=r.stats.kills;
+  meta.kills=(meta.kills||0)+r.stats.kills;meta.bestReach=Math.max(meta.bestReach==null?-1:meta.bestReach,reach);
+  const L=meta.byCurse[r.curse]=meta.byCurse[r.curse]||Object.assign(newStat(),{chars:{}});addStat(L,meta.hist[0]);
+  L.chars[r.char]=L.chars[r.char]||newStat();addStat(L.chars[r.char],meta.hist[0]);
+  meta.bestHit=Math.max(meta.bestHit,r.stats.bestHit);saveMeta();if(!r.online)drop(RK);
+  S.endInfo={online:!!r.online,win,act:r.act,floor:r.floor,kills:r.stats.kills,best:r.stats.bestHit,turns:r.stats.turns,char:r.char,curse:r.curse,seed:r.seed};
+  S.run=null;S.cb=null;goto('end');
+}
+
+/* ============ 戦闘 ============ */
+function makeEnemies(kind,n){
+  const r=S.run,A=r.act;let ids;
+  if(kind==='boss')ids=[bossOf(A)];else if(kind==='elite')ids=pick(ENC[A].elite);else ids=pick(r.floor<3?ENC[A].easy:ENC[A].normal);
+  const hpM=DIFF.hp*(1+0.08*r.curse)*(kind==='boss'?DIFF.bossHp:(1+DIFF.floor*r.floor)*(kind==='elite'?DIFF.eliteHp:1))*n*(DIFF.actHp[A]||1);
+  const am=(kind==='boss'?DIFF.bossAtk:kind==='elite'?DIFF.eliteAtk:1)*(1+ONLINE_ATK*(n-1))*(DIFF.actAtk[A]||1);
+  const out=ids.map(id=>mkEnemy(id,hpM,am));
+  saveMeta();return out;
+}
+function mkEnemy(id,hpM,am){
+  const m=MON[id];const hp=Math.max(1,Math.round(m.hp*hpM));meta.seen.mons[id]=1;
+  return{id,n:m.n,hp,max:hp,hpM,am,enraged:false,block:0,str:0,burn:0,vuln:0,weak:0,mi:m.boss||m.fixed?0:Math.floor(rng()*m.mv.length),boss:!!m.boss,immune:null,plate:m.plate||0,stole:0};
+}
+// 召喚・分裂：敵は同時に4体まで
+function spawnEnemy(list,id,from,hp){
+  if(list.filter(e=>e.hp>0).length>=4)return null;
+  const e=mkEnemy(id,from.hpM||1,from.am||1);e.boss=false;
+  if(hp!=null){e.hp=hp;e.max=hp}
+  if(S.cb&&S.cb.online&&NET.cs){const al=NET.cs.order.filter(p=>!NET.cs.pl[p].down&&present(p));e.tg=al.length?pick(al):from.tg}
+  list.push(e);return e;
+}
+// ギミックの説明（敵を選ぶと出る）
+const TRAIT_TXT={
+  spikes:v=>`トゲ${v}：攻撃を受けるたび、こちらに${v}ダメージを返す`,
+  regen:v=>`再生${v}：行動の前にHPを回復する`,
+  plate:()=>`装甲：行動の前に装甲と同じだけ防御を得る。HPにダメージを受けるたび装甲-1`,
+  split:()=>`分裂：HPが半分以下になると、残りのHPを分け合って2体に分かれる`,
+  rage:v=>`怒り：ダメージを受けるたび力+${v}（1ターンに3回まで）`,
+  ritual:v=>`儀式：行動の前に力+${v}`,
+  immune:()=>`属性無効：毎ターン、どれか1つの属性が効かなくなる`,
+};
+function traitLines(e){const m=MON[e.id],out=[];for(const k in TRAIT_TXT){if(!m[k])continue;if(k==='split'&&e.splitDone)continue;if(k==='plate'&&!e.plate)continue;out.push(TRAIT_TXT[k](m[k]))}
+  if(e.intangible)out.push('実体なし：次の行動まで、受けるダメージが1回につき1になる');
+  if(e.stole)out.push(`盗んだゴールド ${e.stole}：逃げる前に倒すと取り返せる`);
+  return out}
+function bossDesc(id){const m=MON[id];const t=[];if(m.split)t.push('分裂');if(m.rage)t.push('怒り');if(m.regen)t.push('再生');if(m.plate)t.push('装甲');if(m.spikes)t.push('トゲ');if(m.ritual)t.push('儀式');if(m.immune)t.push('属性無効');if(m.mv.some(x=>x.some(a=>a.a==='summon')))t.push('召喚');
+  return 'この幕のボス。倒すと魔法陣が広がる'+(t.length?`（${t.join('・')}）`:'')}
+function startCombat(kind){
+  flushTray();const r=S.run;allRunes().forEach(x=>x.inst.g=0);
+  const enemies=makeEnemies(kind,1);
+  S.cb={kind,enemies,turn:0,mana:0,used:{r:[],c:[]},block:0,poison:0,weak:0,power:0,sealed:Array(r.N*r.N).fill(0),once:{},rev:false,revUsed:false,target:0,busy:false,hl:-1,info:null,fxq:[],log:[]};
+  combatStartRelics();startTurn();firstTurnRelics(S.cb.enemies);goto('combat');
+}
+// 戦闘開始時の秘宝（自分だけに効くもの）
+function combatStartRelics(){
+  const c=S.cb,r=S.run;
+  if(has('rod')&&r.char==='witch'){c.charge=(c.charge||0)+1;c.chainN=(c.chainN||0)+CHARGE_EVERY}
+  if(has('moss'))allRunes().forEach(x=>{if(RUNES[x.inst.id].e==='forest')x.inst.g+=2});
+}
+// 最初のターンに敵へ効く秘宝（オンラインでは自分の最初の番に使う）
+function firstTurnRelics(enemies){
+  const c=S.cb;const al=enemies.filter(e=>e.hp>0);
+  if(has('whet')){c.power+=1;fx('p',0,'魔力+1','info')}
+  if(has('flask'))al.forEach(e=>{if(e.immune!=='fire'){e.burn+=3+(has('scale')?1:0);fx('e',enemies.indexOf(e),'延焼+3','burn')}});
+  if(has('mirror'))al.forEach(e=>{e.vuln+=2;fx('e',enemies.indexOf(e),'脆弱+2','info')});
+  if(has('bell')&&(c.kind==='elite'||c.kind==='boss')){c.block+=12;fx('p',0,'防御+12','blk')}
+}
+function startTurn(){
+  const c=S.cb,r=S.run,N=r.N;
+  c.turn++;r.stats.turns++;
+  c.block=(c.turn===1&&has('hat')?8:0)+(has('iron')?3:0);
+  c.mana=3+(has('crystal')?1:0)+(c.turn===1&&has('hourglass')?2:0);
+  c.used={r:Array(N).fill(0),c:Array(N).fill(0)};c.once={};c.thorns=has('thornc')?2:0;c.rev=false;c.revUsed=false;c.swap=null;c.swapUsed=false;
+  if(has('amulet')){c.poison=Math.max(0,c.poison-2);c.weak=Math.max(0,c.weak-1)}
+  c.enemies.forEach(e=>{if(MON[e.id].immune&&e.hp>0){e.immune=pick(Object.keys(EL))}});
+}
+const alive=()=>S.cb.enemies.filter(e=>e.hp>0);
+const allDead=()=>alive().length===0;
+function tgt(){const c=S.cb;let e=c.enemies[c.target];if(!e||e.hp<=0){const k=c.enemies.findIndex(x=>x.hp>0);c.target=k<0?0:k;e=c.enemies[k]}return e}
+function log(t){const c=S.cb;if(!c)return;c.log.push(t);if(c.log.length>4)c.log.shift();if(S.rec)S.rec.log.push(t)}
+function fx(k,i,text,cls){S.cb.fxq.push({k,i,text,cls});if(S.rec&&S.rec.cur)S.rec.cur.fx.push({k,i,text,cls})}
+// 不死鳥の尾羽：一人用で一度だけ、倒れてもHP30%で立ち上がる
+function survive(){const r=S.run;if(r.hp>0)return true;if(!r.online&&has('phoenix')&&!r.phoenixUsed){r.phoenixUsed=true;r.hp=Math.round(r.maxHp*0.3);if(S.cb){fx('p',0,'不死鳥 +'+r.hp,'heal');log('不死鳥の尾羽で立ち上がった')}return true}return false}
+function healP(v){const r=S.run;const before=r.hp;r.hp=Math.min(r.maxHp,r.hp+v);if(S.cb&&r.hp>before)fx('p',0,'+'+(r.hp-before),'heal')}
+function hit(e,raw,el,o={}){
+  const c=S.cb,r=S.run;if(!e||e.hp<=0)return 0;
+  const ei=c.enemies.indexOf(e);
+  if(e.immune&&e.immune===el){fx('e',ei,'無効','info');return 0}
+  let d=raw+c.power;if(c.weak>0)d=Math.floor(d*0.75);if(e.vuln>0)d=Math.floor(d*1.5);d=Math.max(0,d);
+  if(e.intangible)d=Math.min(d,1);
+  const blk=o.pierce?0:Math.min(e.block,d);e.block-=blk;const dmg=d-blk;e.hp-=dmg;
+  fx('e',ei,dmg>0?'-'+dmg:'防御','dmg');
+  if(d>r.stats.bestHit)r.stats.bestHit=d;
+  const M=MON[e.id];
+  if(dmg>0&&e.plate>0){e.plate--}
+  if(M.spikes){const sp=M.spikes;const b=Math.min(c.block,sp);c.block-=b;r.hp-=sp-b;fx('p',0,sp-b>0?'トゲ -'+(sp-b):'防御','pdmg')}
+  if(M.rage&&dmg>0&&e.hp>0&&(e.rageT||0)<3){e.rageT=(e.rageT||0)+1;e.str+=M.rage;fx('e',ei,'力+'+M.rage,'info')}
+  if(M.split&&!e.splitDone&&e.hp>0&&e.hp<=e.max/2){e.splitDone=true;const half=Math.ceil(e.hp/2);const sp2=spawnEnemy(c.enemies,e.id,e,e.hp-half);if(sp2){sp2.splitDone=true;sp2.n=e.n+'（分身）';e.hp=half;e.max=Math.max(half,Math.round(e.max/2));fx('e',ei,'分裂','info');log(`${e.n}が分裂した`)}}
+  if(e.boss&&!e.enraged&&e.hp>0&&e.hp<=e.max/2){const s=3+r.act*2;e.enraged=true;e.str+=s;fx('e',ei,'激昂','info');log(`${e.n}が激昂した（力+${s}）`)}
+  if(e.hp<=0){e.hp=0;r.stats.kills++;log(`${e.n}を倒した`);if(has('fang'))healP(3);
+    if(e.stole){r.gold+=e.stole;log(`盗まれた${e.stole}ゴールドを取り返した`);e.stole=0}
+    if(has('heart')&&!c.once.heart){c.once.heart=1;c.mana++;fx('p',0,'マナ+1','blk')}}
+  return dmg;
+}
+function neighbors(i){const N=S.run.N,y=Math.floor(i/N),x=i%N;let n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const yy=y+dy,xx=x+dx;if(yy<0||xx<0||yy>=N||xx>=N)continue;if(S.run.board[yy*N+xx].r)n++}return n}
+function neighborIdx(i){const N=S.run.N,y=Math.floor(i/N),x=i%N;const out=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const yy=y+dy,xx=x+dx;if(yy<0||xx<0||yy>=N||xx>=N)continue;out.push(yy*N+xx)}return out}
+function isCorner(i){const N=S.run.N,y=Math.floor(i/N),x=i%N;return(y===0||y===N-1)&&(x===0||x===N-1)}
+
+// 雷の魔女の帯電：連鎖が起きるたびに溜まり、この戦闘中ずっと雷のダメージに上乗せされる
+const CHARGE_EVERY=2,CHARGE_FX=['dmg','dmgAll','multi','rand','pierce','execute','drain'];
+async function applyRune(i,d,inst,cell,ctx,flowIn){
+  const c=S.cb,r=S.run;const p=primIdx(d);
+  let bonus=flowIn+inst.g+(cell.m==='amp'?3:0)+(inst.up&&has('quill')?1:0);
+  if((d.kw||[]).includes('reso'))bonus+=(neighbors(i)+(has('lens')?1:0))*(d.reso+(has('starmap')?1:0));
+  if((d.kw||[]).includes('momentum'))bonus+=(ctx.count||0)*(d.mom+(has('feather')?1:0));
+  const mult=cell.m==='double'?2:1;
+  for(let j=0;j<d.fx.length;j++){const f=d.fx[j];
+    let v=f.v+(inst.up?(f.u||0):0);if(j===p)v+=bonus;if(!NOMULT.includes(f.t))v*=mult;
+    if(c.charge&&d.e==='thunder'&&CHARGE_FX.includes(f.t))v+=c.charge; // 雷の魔女：帯電
+    const t=tgt();
+    switch(f.t){
+      case 'dmg':hit(t,v,d.e);break;
+      case 'dmgAll':alive().forEach(e=>hit(e,v,d.e));break;
+      case 'burn':if(t){if(t.immune===d.e){fx('e',c.enemies.indexOf(t),'無効','info');break}t.burn+=v+(has('scale')?1:0);fx('e',c.enemies.indexOf(t),'延焼+'+(v+(has('scale')?1:0)),'burn')}break;
+      case 'burnAll':alive().forEach(e=>{if(e.immune===d.e)return;e.burn+=v+(has('scale')?1:0)});break;
+      case 'detonate':if(t){const dm=t.burn*v;t.burn=0;hit(t,dm,d.e)}break;
+      case 'heal':healP(v);break;
+      case 'absorbDebuff':if(t&&!c.once[i+'a']){const ei=c.enemies.indexOf(t);
+        // 脆弱・弱体・力低下の値をそのまま吸う（延焼は対象外）
+        const n=t.vuln+t.weak+Math.max(0,-t.str);
+        if(n>0){c.once[i+'a']=1;c.power+=n*v;t.vuln=0;t.weak=0;if(t.str<0)t.str=0;fx('e',ei,'デバフを吸った','info');fx('c',i,'魔力+'+n*v,'info')}else fx('c',i,'吸えるデバフなし','info')}break;
+      case 'chainNext':ctx.forceChain=true;fx('c',i,'追い風','info');break;
+      case 'block':c.block+=v;fx('p',0,'防御+'+v,'blk');break;
+      case 'self':r.hp-=v;fx('p',0,'-'+v,'pdmg');break;
+      case 'selfPoison':c.poison+=v;break;
+      case 'vuln':if(t){t.vuln+=v;fx('e',c.enemies.indexOf(t),'脆弱+'+v,'info')}break;
+      case 'mana':if(!c.once[i+'m']){c.once[i+'m']=1;c.mana+=v;fx('c',i,'マナ+'+v,'blk')}break;
+      case 'power':if(!c.once[i+'p']){c.once[i+'p']=1;c.power+=v;fx('c',i,'魔力+'+v,'info')}break;
+      case 'dmgPerThunder':hit(t,v*Math.max(1,ctx.thunder),d.e);break;
+      case 'multi':for(let k=0;k<f.x;k++){if(allDead())break;hit(tgt(),v,d.e);if(k<f.x-1){render();await sleep(230)}}break;
+      case 'rand':for(let k=0;k<f.x;k++){const al=alive();if(!al.length)break;hit(pick(al),v,d.e);if(k<f.x-1){render();await sleep(230)}}break;
+      case 'pierce':hit(t,v,d.e,{pierce:true});break;
+      case 'execute':if(t)hit(t,t.hp<=t.max/2?v*2:v,d.e);break;
+      case 'burnSpread':if(t&&t.burn>0){const b=t.burn;alive().forEach(e=>{if(e!==t&&e.immune!=='fire'){e.burn+=b;fx('e',c.enemies.indexOf(e),'延焼+'+b,'burn')}})}break;
+      case 'weakE':if(t){t.weak+=v;fx('e',c.enemies.indexOf(t),'弱体+'+v,'info')}break;
+      case 'vulnAll':alive().forEach(e=>{e.vuln+=v});break;
+      case 'strDown':if(t){t.str-=v;fx('e',c.enemies.indexOf(t),'力-'+v,'info')}break;
+      case 'cleanse':c.poison=Math.max(0,c.poison-v);c.weak=Math.max(0,c.weak-1);break;
+      case 'drain':{const dm=hit(t,v,d.e);if(dm>0)healP(Math.floor(dm/2))}break;
+      case 'thorns':c.thorns+=v;fx('p',0,'反撃+'+v,'blk');break;
+      case 'growKin':r.board.forEach((cl,k)=>{if(k!==i&&cl.r&&RUNES[cl.r.id]&&RUNES[cl.r.id].n.includes('世界樹')){cl.r.g+=v;fx('c',k,'成長+'+v,'grow')}});break;
+      case 'growNbr':neighborIdx(i).forEach(k=>{const o=r.board[k].r;if(o&&RUNES[o.id].e==='forest')o.g+=v});break;
+      case 'blockDmg':hit(t,c.block+v,d.e);break;
+      case 'burnDouble':if(t&&t.burn>0&&t.immune!=='fire'&&!c.once[i+'x']){c.once[i+'x']=1;t.burn*=2;fx('e',c.enemies.indexOf(t),'延焼×2','burn')}break;
+      case 'dmgPerRune':hit(t,v*r.board.filter(x=>x.r).length,d.e);break;
+      case 'dupLast':{const L=ctx.last;if(L&&!L.d.fx.some(x=>x.t==='dupLast')&&!allDead()){fx('c',i,'反響','info');render();await sleep(200);await applyRune(L.i,L.d,L.inst,L.cell,ctx,0);ctx.count=(ctx.count||0)+1}}break;
+      case 'sealNeighbor':{const cand=neighborIdx(i).filter(k=>r.board[k].r&&c.sealed[k]<2);if(cand.length){const k=pick(cand);c.sealed[k]=2;fx('c',k,'封印','info')}}break;
+    }
+  }
+}
+async function activate(i,ctx){
+  const c=S.cb,r=S.run,cell=r.board[i],inst=cell.r;
+  if(!inst){ctx.prev=null;ctx.flow=0;return}
+  const d=RUNES[inst.id];
+  if(c.sealed[i]>0){fx('c',i,'封印中','info');ctx.prev=null;ctx.flow=0;return}
+  const kw=d.kw||[];let times=1,chained=false;
+  if(kw.includes('chain')){
+    if(ctx.prev==='thunder'){times=2;chained=true}
+    else if(ctx.forceChain){times=2;chained=true;ctx.forceChain=false}
+    else if(r.char==='witch'&&ctx.thunder>0&&!ctx.grace){times=2;chained=true;ctx.grace=true}
+  }
+  const tags=chained?['','連鎖']:[''];if(has('corner')&&isCorner(i)){times++;tags.push('四隅')}
+  if(cell.m==='echo'&&!c.once[i+'e']){c.once[i+'e']=1;times++;tags.push('反復')}
+  const flowIn=ctx.flow;ctx.flow=0;
+  if(d.e==='thunder')ctx.thunder++;
+  for(let k=0;k<times;k++){
+    if(allDead())break;
+    if(k>0){c.hl=-1;render();await sleep(120);c.hl=i;fx('c',i,`${tags[k]}・${k+1}回目`,'info');render();await sleep(230)}
+    await applyRune(i,d,inst,cell,ctx,flowIn);ctx.count=(ctx.count||0)+1; // 疾風用：発動の回数（連鎖・四隅・反復の2回目も数える）
+    if(d.fx.length&&cell.m==='double')fx('c',i,'倍化の紋章 ×2','mod');
+    if(d.e==='water'&&has('pearl')){c.block+=1}
+    if(d.fx.length&&cell.m==='amp')fx('c',i,'増幅の紋章 +3','mod');
+    if(tags[k]==='連鎖'&&has('ring'))hit(tgt(),2,'thunder');
+    if(tags[k]==='連鎖'&&r.char==='witch'){c.chainN=(c.chainN||0)+1;const ch=Math.floor(c.chainN/CHARGE_EVERY);if(ch>(c.charge||0)){c.charge=ch;fx('c',i,'帯電+1','info');fx('p',0,'帯電 '+ch,'info')}}
+    if(times>1){render();await sleep(320)}
+  }
+  if(cell.m==='guard'){c.block+=4;fx('c',i,'守護の紋章 防御+4','mod');fx('p',0,'防御+4','blk')}
+  if(cell.m==='spring'&&!c.once[i+'s']){c.once[i+'s']=1;c.mana++;fx('c',i,'泉の紋章 マナ+1','mod')}
+  if(cell.m==='echo')fx('c',i,'','mod');
+  if(cell.m==='life'){healP(2);fx('c',i,'','mod')}
+  if(cell.m==='curse'){const t=tgt();if(t){t.vuln+=1;fx('e',c.enemies.indexOf(t),'脆弱+1','info')}fx('c',i,'','mod')}
+  if(cell.m==='ember'){const t=tgt();if(t&&t.immune!=='fire'){t.burn+=2;fx('e',c.enemies.indexOf(t),'延焼+2','burn')}fx('c',i,'','mod')}
+  if(kw.includes('flow'))ctx.flow=d.flow+(inst.up?d.fu:0)+(has('chalice')?2:0);
+  if(kw.includes('grow'))inst.g+=growAmt(d);
+  ctx.prev=d.e;ctx.last={i,d,inst,cell};
+}
+async function cast(k,idx){
+  const c=S.cb,r=S.run,N=r.N;if(!c||c.busy)return;if(c.online&&!myTurn())return;
+  const lim=has('crown')?2:1;if(c.mana<1||c.used[k][idx]>=lim)return;
+  c.busy=true;c.mana--;c.used[k][idx]++;c.info=null;c.swap=null;
+  const rev=c.rev&&!c.revUsed;if(rev){c.revUsed=true;c.rev=false;log('逆詠唱')}
+  const cells=castPath(k,idx,rev);
+  const ctx={prev:null,flow:0,thunder:0,grace:false,count:has('kite')?1:0,forceChain:false};
+  // オンライン：仲間の画面で再生できるように、マスごとの演出を記録する
+  if(c.online)S.rec={id:NET.me+':'+Date.now().toString(36)+':'+Math.floor(Math.random()*1e4),pid:NET.me,k,idx,rev,steps:[],log:[],cur:null};
+  for(const i of cells){
+    if(allDead()||(r.hp<=0&&!survive()))break;
+    if(S.rec){S.rec.cur={i,fx:[]};S.rec.steps.push(S.rec.cur)}
+    c.hl=i;render();await sleep(200);
+    await activate(i,ctx);if(PATH_MODS.includes(r.board[i].m))fx('c',i,'','mod');
+    if(S.rec)Object.assign(S.rec.cur,{hp:c.enemies.map(e=>e.hp),bl:c.enemies.map(e=>e.block),me:Math.max(0,r.hp)});
+    render();await sleep(110);
+  }
+  if(S.rec&&NET.cs){const{cur,...rec}=S.rec;NET.cs.cast=rec;S.rec=null}
+  c.hl=-1;c.busy=false;
+  if(c.online){render();return afterOnlineCast()}
+  if(!survive()){render();await sleep(400);return endRun(false)}
+  if(allDead()){render();await sleep(450);return winCombat()}
+  render();
+  // マナが尽きたら自動でターン終了
+  if(c.mana<1){await sleep(450);if(S.cb===c&&!c.busy&&c.mana<1&&S.screen==='combat')endTurn()}
+}
+// 敵が行動する前の処理（防御のリセット・装甲・再生・儀式・実体の戻り）
+function enemyPre(e,list){
+  const M=MON[e.id],ei=list.indexOf(e);
+  e.block=0;e.rageT=0;if(e.intangible){e.intangible=false}
+  if(e.plate>0){e.block+=e.plate;fx('e',ei,'装甲 防御+'+e.plate,'blk')}
+  if(M.regen&&e.hp<e.max){const v=sc(M.regen,e);e.hp=Math.min(e.max,e.hp+v);fx('e',ei,'再生 +'+v,'heal')}
+  if(M.ritual){e.str+=M.ritual;fx('e',ei,'儀式 力+'+M.ritual,'info')}
+}
+function sc(v,e){return Math.round(v*DIFF.atk*(e&&e.am||1)*(1+0.06*S.run.curse))}
+function atkVal(e,v){let d=sc(v,e)+e.str;if(e.weak>0)d=Math.floor(d*0.75);return Math.max(0,d)}
+async function enemyAct(e,a){
+  const c=S.cb,r=S.run,ei=c.enemies.indexOf(e);
+  switch(a.a){
+    case 'atk':for(let k=0;k<a.x;k++){const d=atkVal(e,a.v);const blk=Math.min(c.block,d);c.block-=blk;const dm=d-blk;r.hp-=dm;fx('p',0,dm>0?'-'+dm:'防御','pdmg');
+      if(c.thorns>0&&e.hp>0){e.hp=Math.max(0,e.hp-c.thorns);fx('e',ei,'反撃 -'+c.thorns,'dmg');if(e.hp<=0){r.stats.kills++;log(`${e.n}を反撃で倒した`);if(has('fang'))healP(3)}}
+      render();shake('#pbar');await sleep(200);if(r.hp<=0||e.hp<=0)return}break;
+    case 'block':{const v=sc(a.v,e);e.block+=v;fx('e',ei,'防御+'+v,'blk')}break;
+    case 'str':e.str+=a.v;fx('e',ei,'力+'+a.v,'info');break;
+    case 'poison':{const pv=sc(a.v,e);const v=has('lantern')?Math.floor(pv/2):pv;c.poison+=v;fx('p',0,'毒+'+v,'info')}break;
+    case 'weak':c.weak+=a.v;fx('p',0,'弱体+'+a.v,'info');break;
+    case 'heal':{const v=sc(a.v,e);e.hp=Math.min(e.max,e.hp+v);fx('e',ei,'+'+v,'heal')}break;
+    case 'healAll':{const v=sc(a.v,e);alive().forEach(x=>{x.hp=Math.min(x.max,x.hp+v);fx('e',c.enemies.indexOf(x),'+'+v,'heal')})}break;
+    case 'seal':{const cand=r.board.map((cl,i)=>cl.r&&c.sealed[i]<1?i:-1).filter(i=>i>=0);for(const i of shuffle(cand).slice(0,a.v)){c.sealed[i]=1;fx('c',i,'封印','info')}log(`${e.n}がルーンを封印した`)}break;
+    case 'summon':{let n=0;for(let k=0;k<a.n;k++)if(spawnEnemy(c.enemies,a.id,e))n++;if(n)log(`${e.n}が${MON[a.id].n}を呼んだ`);else fx('e',ei,'呼べなかった','info')}break;
+    case 'boom':{const d=atkVal(e,a.v);const blk=Math.min(c.block,d);c.block-=blk;r.hp-=d-blk;fx('p',0,d-blk>0?'-'+(d-blk):'防御','pdmg');shake('#pbar');e.hp=0;fx('e',ei,'自爆','dmg');log(`${e.n}が自爆した`)}break;
+    case 'steal':{const d=atkVal(e,a.v);const blk=Math.min(c.block,d);c.block-=blk;r.hp-=d-blk;fx('p',0,d-blk>0?'-'+(d-blk):'防御','pdmg');shake('#pbar');
+      const g=Math.min(r.gold,10+5*r.act);if(g>0){r.gold-=g;e.stole+=g;fx('e',ei,g+'G 盗んだ','info');log(`${e.n}に${g}ゴールド盗まれた`)}}break;
+    case 'flee':e.hp=0;e.fled=true;fx('e',ei,'逃走','info');log(e.stole?`${e.n}が${e.stole}ゴールドを持って逃げた`:`${e.n}は逃げ出した`);break;
+    case 'blockAll':{const v=sc(a.v,e);c.enemies.filter(x=>x.hp>0).forEach(x=>{x.block+=v;fx('e',c.enemies.indexOf(x),'防御+'+v,'blk')})}break;
+    case 'phase':e.intangible=true;fx('e',ei,'実体が消えた','info');break;
+    case 'charge':fx('e',ei,'力をためている','info');break;
+  }
+  render();await sleep(120);
+}
+async function endTurn(){
+  const c=S.cb,r=S.run;if(!c||c.busy)return;if(c.online)return endTurnOnline();c.busy=true;c.info=null;c.rev=false;
+  for(const e of alive()){if(e.burn>0){e.hp-=e.burn;fx('e',c.enemies.indexOf(e),'-'+e.burn,'burn');e.burn--;if(e.hp<=0){e.hp=0;r.stats.kills++;log(`${e.n}は燃え尽きた`);if(has('fang'))healP(3)}}}
+  if(c.poison>0){r.hp-=c.poison;fx('p',0,'毒 -'+c.poison,'pdmg');c.poison--}
+  c.weak=Math.max(0,c.weak-1);
+  c.enemies.forEach(e=>{e.vuln=Math.max(0,e.vuln-1)});
+  c.sealed=c.sealed.map(v=>Math.max(0,v-1));
+  render();
+  if(!survive()){await sleep(500);return endRun(false)}
+  if(allDead()){await sleep(450);return winCombat()}
+  await sleep(380);
+  for(const e of [...c.enemies]){
+    if(e.hp<=0)continue;
+    enemyPre(e,c.enemies);
+    const mv=MON[e.id].mv[e.mi];
+    shake(`[data-eid="${c.enemies.indexOf(e)}"]`);
+    for(const a of mv){await enemyAct(e,a);if(r.hp<=0&&!survive())break}
+    e.mi=(e.mi+1)%MON[e.id].mv.length;e.weak=Math.max(0,e.weak-1);
+    render();
+    if(!survive()){await sleep(500);return endRun(false)}
+    if(allDead()){await sleep(450);return winCombat()}
+    await sleep(260);
+  }
+  startTurn();c.busy=false;render();
+}
+function winCombat(){
+  const c=S.cb,r=S.run,kind=c.kind;allRunes().forEach(x=>x.inst.g=0);
+  if(kind==='boss'&&r.act===2){return endRun(true)}
+  let gold=kind==='boss'?70:kind==='elite'?30+Math.floor(rng()*11):12+Math.floor(rng()*9);
+  if(has('purse'))gold=Math.round(gold*1.5);
+  r.gold+=gold;
+  if(has('necklace'))r.hp=Math.min(r.maxHp,r.hp+5);
+  S.queue=[];
+  if(kind==='battle')S.queue.push({t:'runes',opts:rollRunes(3,'normal')});
+  if(kind==='elite'){S.queue.push({t:'mod',opts:shuffle(Object.keys(MODS)).slice(0,2)});S.queue.push({t:'runes',opts:rollRunes(3,'elite')})}
+  if(kind==='boss'){
+    r.hp=Math.min(r.maxHp,r.hp+Math.round(r.maxHp*0.3));
+    S.queue.push({t:'relic',opts:rollRelics(3,true)});
+    if(r.N<5)S.queue.push({t:'expand'});
+  }
+  S.reward={gold,kind};S.cb=null;saveRun();goto('reward');
+}
+function contQueue(){if(S.queue.length)goto('reward');else finishNode()}
+
+/* ============ 商人・イベント ============ */
+function genShop(){
+  const rars=['c','c','r','r','e'];const ids=[];
+  rars.forEach(rr=>{let g=0,id;do{id=runeOfRar(rr)}while(ids.includes(id)&&g++<20);ids.push(id);seeRune(id)});
+  saveMeta();
+  const off=p=>has('coin')?Math.round(p*0.8):p;
+  S.run.shop={runes:ids.map(id=>({id,p:off(PRICE[RUNES[id].r]),sold:false})),relics:rollRelics(2,false).map(id=>({id,p:off(130+Math.floor(rng()*31)),sold:false})),mod:{id:pick(Object.keys(MODS)),p:off(90),sold:false},removed:false};
+}
+const hasUpgradable=()=>allRunes().some(x=>!x.inst.up);
+const EVENTS=[
+  {id:'altar',t:'血に濡れた祭壇',x:'祭壇の上に、強い魔力を放つルーンが置かれている。手に取るには代償がいる。',ch:[
+    {l:'HPを8払い、エピックのルーンを得る',ok:()=>S.run.hp>8&&hasSpace(),f:()=>{S.run.hp-=8;const id=runeOfRar('e');return{msg:`HPを8失い、${RUNES[id].n}を手に入れた。`,give:id}}},
+    {l:'立ち去る',f:()=>({msg:'祭壇に背を向けた。'})}]},
+  {id:'spring',t:'澄んだ泉',x:'遺跡の奥に、淡く光る泉が湧いている。',ch:[
+    {l:'水を飲む（最大HPの30%回復）',f:()=>{const v=Math.round(S.run.maxHp*0.3);S.run.hp=Math.min(S.run.maxHp,S.run.hp+v);return{msg:`HPが${v}回復した。`}}},
+    {l:'ルーンを泉に浸す（1つ強化）',ok:hasUpgradable,f:()=>({msg:'泉の光がルーンに染み込んでいく。',upgrade:true})}]},
+  {id:'ghost',t:'商人の亡霊',x:'半透明の商人が、古びた箱を差し出してくる。「50ゴールドで、どうだい」',ch:[
+    {l:'50ゴールド払う（秘宝を得る）',ok:()=>S.run.gold>=50,f:()=>{S.run.gold-=50;const id=rollRelics(1,false)[0];addRelic(id);return{msg:id?`箱の中には${RELICS[id].n}が入っていた。`:'箱は空だった。'}}},
+    {l:'断る',f:()=>({msg:'亡霊は寂しそうに消えていった。'})}]},
+  {id:'tome',t:'封じられた禁書',x:'鎖で縛られた本が、ひとりでに頁をめくっている。',ch:[
+    {l:'禁書を読む（禁呪のルーンを得る）',ok:hasSpace,f:()=>{const id=runeOfRar('x');return{msg:`頁から${RUNES[id].n}の呪文が浮かび上がった。`,give:id}}},
+    {l:'鎖を解かずに去る',f:()=>({msg:'本は静かに閉じた。'})}]},
+  {id:'gamble',t:'骸骨の賭博師',x:'「コインを投げよう。表なら倍にして返す」',ch:[
+    {l:'30ゴールド賭ける',ok:()=>S.run.gold>=30,f:()=>{if(rng()<0.5){S.run.gold+=30;return{msg:'表が出た。30ゴールド増えた。'}}S.run.gold-=30;return{msg:'裏が出た。30ゴールドを失った。'}}},
+    {l:'相手にしない',f:()=>({msg:'骸骨はカタカタと笑った。'})}]},
+  {id:'statue',t:'迷いの石像',x:'石像の手に触れると、持ち物の形が変わるという。',ch:[
+    {l:'ルーン1つをランダムに変える',ok:()=>allRunes().length>0,f:()=>{const x=pick(allRunes());const old=RUNES[x.inst.id].n;const id=runeOfRar(pickW({c:40,r:45,e:15}));x.inst.id=id;x.inst.up=false;x.inst.g=0;seeRune(id);saveMeta();return{msg:`${old}が${RUNES[id].n}に変わった。`}}},
+    {l:'触れずに進む',f:()=>({msg:'石像は何も語らない。'})}]},
+  {id:'crest',t:'古い紋章',x:'床に刻まれた紋章が、まだ魔力を帯びている。剥がし取れば使えそうだ。',ch:[
+    {l:'HPを5払って紋章を得る',ok:()=>S.run.hp>5,f:()=>{S.run.hp-=5;const m=pick(Object.keys(MODS));return{msg:`HPを5失い、${MODS[m].n}を得た。`,mod:m}}},
+    {l:'そのままにしておく',f:()=>({msg:'紋章は床に残したままにした。'})}]},
+];
+
+/* ============ 描画 ============ */
+const $app=document.getElementById('app'),$fx=document.getElementById('fx');
+function goto(s){S.screen=s;S.ui.confirm=false;render();window.scrollTo(0,0)}
+function render(){
+  const f={title:rTitle,chars:rChars,codex:rCodex,records:rRecords,online:rOnline,lobby:rLobby,wait:rWait,map:rMap,combat:rCombat,reward:rReward,edit:rEdit,camp:rCamp,shop:rShop,event:rEvent,treasure:rTreasure,end:rEnd}[S.screen];
+  $app.innerHTML=f();
+  alignSide();
+  flushFx();
+  if(S.screen==='map'&&S.run&&S.run.online)spinWheel();
+}
+// 戦闘の左右の枠（ルーンの説明・仲間の体力）の上端を、敵の枠の上端にそろえる
+function alignSide(){
+  if(S.screen!=='combat')return;const en=$app.querySelector('.enemies');if(!en)return;
+  const t=en.getBoundingClientRect().top-$app.getBoundingClientRect().top;
+  $app.querySelectorAll('.side-info,.side-party').forEach(x=>{x.style.top=t+'px'});
+}
+function flushFx(){
+  if(!S.cb||!S.cb.fxq.length)return;
+  const q=S.cb.fxq;S.cb.fxq=[];
+  q.forEach((f,n)=>{
+    const sel=f.k==='e'?`[data-eid="${f.i}"]`:f.k==='p'?'#pbar':f.k==='q'?`[data-pid="${f.i}"]`:`.cell[data-i="${f.i}"]`;
+    const el=$app.querySelector(sel);if(!el)return;
+    if(f.cls==='mod'){el.classList.remove('modpulse');void el.offsetWidth;el.classList.add('modpulse');return}
+    const rc=el.getBoundingClientRect();
+    const d=document.createElement('div');d.className='float '+f.cls;d.textContent=f.text;
+    const mo=f.cls==='mod';d.style.left=(rc.left+rc.width/2+(mo?0:((n%3)-1)*14))+'px';d.style.top=(rc.top+(mo?-8:rc.height/2-(n%2)*12))+'px';
+    $fx.appendChild(d);setTimeout(()=>d.remove(),950);
+    if(f.cls==='dmg'&&f.k==='e')el.classList.add('shake');
+  });
+}
+function shake(sel){const el=$app.querySelector(sel);if(el){el.classList.remove('shake');void el.offsetWidth;el.classList.add('shake')}}
+
+function hpBar(){const r=S.run;return `<span class="bar"><span style="width:${Math.max(0,r.hp)/r.maxHp*100}%"></span></span>`}
+function relicChips(){const r=S.run;if(!r.relics.length)return '';return `<div class="chips">${r.relics.map(k=>`<button class="chip relic" data-a="relicinfo" data-k="${k}">${RELICS[k].n}</button>`).join('')}</div>`}
+function statusHead(){
+  const r=S.run,len=ACTS[r.act].len;
+  let pg='';for(let i=0;i<len;i++)pg+=`<i class="${i<r.floor?'done':i===r.floor?'now':''}"></i>`;
+  return `<div class="panel">
+    <div class="status"><span class="where">第${r.act+1}幕 ${ACTS[r.act].n}</span><span class="small muted num">${r.floor+1} / ${len}階</span></div>
+    <div class="progress">${pg}</div>
+    <div class="spread"><span class="num">HP <b>${r.hp}</b> / ${r.maxHp}</span><span class="num" style="color:var(--gold)">${r.gold} G</span></div>
+    ${hpBar()}
+    ${relicChips()}
+    ${S.ui.relicInfo?`<p class="small"><b style="color:var(--gold)">${RELICS[S.ui.relicInfo].n}</b>：${RELICS[S.ui.relicInfo].d}</p>`:''}
+  </div>`;
+}
+function runeTile(inst,i,extra=''){
+  if(!inst)return `<button class="cell none ${extra}" data-a="slot" data-loc="${i.loc}" data-i="${i.i}"><span class="empty">空き</span></button>`;
+  const d=RUNES[inst.id];
+  return `<button class="cell e-${d.e} ${extra}" data-a="slot" data-loc="${i.loc}" data-i="${i.i}"><span class="glyph">${EL[d.e].n}</span><span class="rn">${d.n}${inst.up?'+':''}</span><span class="rv">${tileVal(d,inst)}</span>${tileSub(d,inst)?`<span class="rv2">${tileSub(d,inst)}</span>`:''}</button>`;
+}
+function runeCard(id,attrs,extra=''){
+  const d=RUNES[id];
+  return `<button class="rcard e-${d.e}" ${attrs}><span class="top"><span class="glyph">${EL[d.e].n}</span><span><span class="nm">${d.n}</span><br><span class="rar ${d.r==='x'?'x':''}">${EL[d.e].n}・${RAR[d.r]}</span></span></span><span class="d">${descRune(d,null).join('<br>')}</span>${extra}</button>`;
+}
+function infoBlock(inst,cell){
+  if(!inst&&!(cell&&cell.m))return '';
+  let h='';
+  if(inst){const d=RUNES[inst.id];h+=`<p class="nm">${d.n}${inst.up?'+':''} <span class="small muted">${EL[d.e].n}・${RAR[d.r]}${inst.g?`・成長 +${inst.g}`:''}</span></p><p>${descRune(d,inst).join('<br>')}</p>`}
+  if(cell&&cell.m)h+=`<p class="small" style="color:var(--gold)">${MODS[cell.m].n}：${MODS[cell.m].d}</p>`;
+  return h;
+}
+
+/* --- タイトル --- */
+function rTitle(){
+  const saved=load(RK);
+  const nr=Object.keys(meta.seen.runes).length,tr=Object.keys(RUNES).length;
+  return `<div class="hero">
+    <div class="circle" aria-hidden="true"><i></i><i></i><i></i><i></i>
+      <b style="left:50%;top:6%">炎</b><b style="left:89%;top:28%">雷</b><b style="left:89%;top:72%">風</b><b style="left:50%;top:94%">水</b><b style="left:11%;top:72%">森</b><b style="left:11%;top:28%">星</b></div>
+    <h1>ルーンサークル</h1>
+    <p class="tag">魔法陣にルーンを刻んで戦うローグライト</p>
+  </div>
+  <div class="menu">
+    ${saved?`<button class="btn primary" data-a="continue">続きから（第${saved.act+1}幕 ${saved.floor+1}階）</button>`:''}
+    <button class="btn ${saved?'':'primary'}" data-a="tochars">はじめから</button>
+    <button class="btn" data-a="toonline">オンラインで遊ぶ（協力）</button>
+    <button class="btn ghost" data-a="torecords">戦績</button>
+    <button class="btn ghost" data-a="tocodex">魔導書（図鑑）　ルーン ${nr} / ${tr}</button>
+  </div>
+  <div class="panel small">
+    <div class="spread"><span>クリア回数 <b class="num">${meta.clears}</b></span><span>最大ダメージ <b class="num">${meta.bestHit}</b></span><span>挑戦 <b class="num">${meta.runs}</b></span></div>
+    <p class="muted">見た目は仮のデザインです。${saveNote()}</p>
+    ${S.ui.flash?`<p style="color:var(--good)">${S.ui.flash}</p>`:''}
+    ${S.ui.confirm?`<div class="panel confirm"><p><b>すべてのデータを消しますか？</b></p><p class="small">続きから・図鑑・戦績・キャラの解放・呪いLvがすべて消え、元に戻せません。</p><div class="row end"><button class="btn ghost" data-a="noreset">やめる</button><button class="btn" style="border-color:var(--hp);color:var(--hp)" data-a="doreset">すべて消す</button></div></div>`
+      :`<div class="row end"><button class="btn ghost small" data-a="askreset">データを初期化</button></div>`}
+  </div>`;
+}
+function charUnlocked(id){const ch=CHARS[id];if(!ch.lock)return true;if(ch.lock==='reached2')return meta.reached2;if(ch.lock==='clears')return meta.clears>0;return false}
+// オンラインの部屋では、ホストの進行度でキャラが選べる
+function hostProg(){return NET.host?{reached2:!!meta.reached2,clears:meta.clears||0}:(NET.st&&NET.st.prog)||null}
+function netCharOk(id){const ch=CHARS[id];if(!ch.lock)return true;const p=hostProg();if(!p)return false;if(ch.lock==='reached2')return !!p.reached2;if(ch.lock==='clears')return p.clears>0;return false}
+function rChars(){
+  const maxC=meta.maxCurse;
+  if(S.ui.curse>maxC)S.ui.curse=maxC;
+  if(!charUnlocked(S.ui.char))S.ui.char='apprentice';
+  return `<div class="spread"><h2>魔法使いを選ぶ</h2><button class="btn ghost" data-a="totitle">戻る</button></div>
+  <div class="chars">${Object.keys(CHARS).map(id=>{const ch=CHARS[id];const ok=charUnlocked(id);
+    return `<button class="char ${S.ui.char===id?'sel':''} ${ok?'':'locked'}" data-a="pickchar" data-k="${id}" ${ok?'':'disabled'}>
+      <span class="spread"><span class="nm">${ch.n}</span><span class="small muted num">HP ${ch.hp}</span></span>
+      <span class="small">${ok?ch.d:ch.lockText}</span>
+      <span class="small muted">使える属性：${ch.els.map(e=>`<b style="color:var(--${e})">${EL[e].n}</b>`).join('・')}</span>
+      ${ok?`<span class="chips">${ch.runes.map(r=>`<span class="chip">${RUNES[r].n}</span>`).join('')}</span>`:''}
+    </button>`}).join('')}</div>
+  <div class="panel">
+    <div class="spread"><div><b>呪いLv</b><p class="small muted">上げるほど魔物が強くなる。クリアで次のLvが解放される</p></div>
+    <div class="stepper"><button class="btn" data-a="curse" data-d="-1" ${S.ui.curse<=0?'disabled':''} aria-label="呪いLvを下げる">−</button><b class="num" style="font-size:18px">${S.ui.curse}</b><button class="btn" data-a="curse" data-d="1" ${S.ui.curse>=maxC?'disabled':''} aria-label="呪いLvを上げる">＋</button></div></div>
+  </div>
+  <button class="btn primary wide" data-a="start">冒険を始める</button>`;
+}
+const reachText=v=>v==null||v<0?'―':v>=999?'クリア':`第${Math.floor(v/100)+1}幕 ${v%100+1}階`;
+function rRecords(){
+  const h=meta.hist||[];const lv=S.ui.rlv==null?'all':String(S.ui.rlv);
+  const pad=n=>String(n).padStart(2,'0');
+  const when=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`};
+  const rate=o=>o.runs?Math.round(o.clears/o.runs*100)+'%':'―';
+  const tileRow=list=>`<div class="tiles">${list.map(([k,v])=>`<div class="tile"><span class="label">${k}</span><b class="num">${v}</b></div>`).join('')}</div>`;
+  const levels=[...new Set([...Array(meta.maxCurse+1).keys(),...Object.keys(meta.byCurse).map(Number)])].sort((a,b)=>a-b);
+  const tabs=`<div class="tabs"><button class="tab ${lv==='all'?'on':''}" data-a="rlv" data-k="all">すべて</button>${levels.map(l=>`<button class="tab ${lv===String(l)?'on':''}" data-a="rlv" data-k="${l}">呪いLv${l}</button>`).join('')}</div>`;
+  const charTable=src=>`<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">魔法使い</th><th scope="col">挑戦</th><th scope="col">クリア</th><th scope="col">クリア率</th><th scope="col">最高到達</th><th scope="col">最大ダメージ</th><th scope="col">倒した魔物</th></tr></thead><tbody>${Object.keys(CHARS).map(id=>{const b=src[id]||newStat();return `<tr><th scope="row">${CHARS[id].n}</th><td class="num">${b.runs}</td><td class="num">${b.clears}</td><td class="num">${rate(b)}</td><td>${reachText(b.reach)}</td><td class="num">${b.best}</td><td class="num">${b.kills}</td></tr>`}).join('')}</tbody></table></div>`;
+  const list=h.filter(x=>lv==='all'||String(x.curse)===lv).slice(0,20);
+  const recent=list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">日時</th><th scope="col">魔法使い</th><th scope="col">結果</th><th scope="col">到達</th><th scope="col">呪いLv</th><th scope="col">倒した魔物</th><th scope="col">最大ダメージ</th><th scope="col">形式</th></tr></thead><tbody>${list.map(x=>`<tr><td class="num">${when(x.t)}</td><td>${CHARS[x.char]?CHARS[x.char].n:''}</td><td><span class="chip ${x.win?'relic':'c-hp'}">${x.win?'クリア':'敗北'}</span></td><td>${x.win?'第3幕まで':`第${x.act+1}幕 ${x.floor+1}階`}</td><td class="num">${x.curse}</td><td class="num">${x.kills}</td><td class="num">${x.best}</td><td>${x.online?'オンライン':'ひとり'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">この呪いLvの記録はまだありません。</p>';
+  let body;
+  if(lv==='all'){
+    const lvRows=levels.map(l=>{const L=meta.byCurse[l]||newStat();return `<tr><th scope="row"><button class="linkbtn" data-a="rlv" data-k="${l}">呪いLv${l}</button></th><td class="num">${L.runs}</td><td class="num">${L.clears}</td><td class="num">${rate(L)}</td><td>${reachText(L.reach)}</td><td class="num">${L.best}</td><td class="num">${L.kills}</td></tr>`}).join('');
+    body=`${tileRow([['挑戦',meta.runs],['クリア',meta.clears],['クリア率',meta.runs?Math.round(meta.clears/meta.runs*100)+'%':'―'],['最高到達',reachText(meta.bestReach)],['最大ダメージ',meta.bestHit],['倒した魔物',meta.kills||0]])}
+    <h3>呪いLvごと</h3>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">呪いLv</th><th scope="col">挑戦</th><th scope="col">クリア</th><th scope="col">クリア率</th><th scope="col">最高到達</th><th scope="col">最大ダメージ</th><th scope="col">倒した魔物</th></tr></thead><tbody>${lvRows}</tbody></table></div>
+    <h3>魔法使いごと（全呪いLv）</h3>${charTable(meta.byChar)}
+    <h3>最近の冒険</h3>${recent}`;
+  }else{
+    const L=meta.byCurse[lv]||Object.assign(newStat(),{chars:{}});
+    body=`${tileRow([['挑戦',L.runs],['クリア',L.clears],['クリア率',rate(L)],['最高到達',reachText(L.reach)],['最大ダメージ',L.best],['倒した魔物',L.kills]])}
+    <h3>魔法使いごと（呪いLv${lv}）</h3>${charTable(L.chars||{})}
+    <h3>最近の冒険（呪いLv${lv}）</h3>${recent}`;
+  }
+  return `<div class="spread"><h2>戦績</h2><button class="btn ghost" data-a="totitle">戻る</button></div>
+  ${tabs}${body}
+  <p class="small muted">記録はこのブラウザに保存されます。最近の冒険は最新20件まで表示します。「すべて」の挑戦回数には、途中であきらめた冒険も含みます。</p>`;
+}
+function rCodex(){
+  const tab=S.ui.ctab||'fire';const RO={c:0,r:1,e:2,x:3};
+  const cnt=e=>{const ks=Object.keys(RUNES).filter(k=>RUNES[k].e===e);return `${ks.filter(k=>meta.seen.runes[k]).length}/${ks.length}`};
+  const tabs=[...Object.keys(EL).map(e=>({k:e,n:EL[e].n,c:cnt(e)})),{k:'relic',n:'秘宝',c:''},{k:'mon',n:'魔物',c:''}];
+  const it=(seen,h)=>seen?`<div class="it">${h}</div>`:`<div class="it muted"><b>？？？</b>未発見</div>`;
+  let body='';
+  if(EL[tab])body=Object.keys(RUNES).filter(k=>RUNES[k].e===tab).sort((a,b)=>RO[RUNES[a].r]-RO[RUNES[b].r]).map(k=>it(meta.seen.runes[k],`<b>${RUNES[k].n}</b><span class="muted">${RAR[RUNES[k].r]}</span><br>${descRune(RUNES[k],null).join('<br>')}`)).join('');
+  else if(tab==='relic')body=Object.keys(RELICS).map(k=>it(meta.seen.relics[k],`<b>${RELICS[k].n}</b>${RELICS[k].d}`)).join('');
+  else body=Object.keys(MON).map(k=>it(meta.seen.mons[k],`<b>${MON[k].n}</b><span class="muted">HP ${Math.round(MON[k].hp*DIFF.hp)}${MON[k].boss?'・ボス':''}</span>`)).join('');
+  return `<div class="spread"><h2>魔導書</h2><button class="btn ghost" data-a="totitle">戻る</button></div>
+  <div class="tabs">${tabs.map(t=>`<button class="tab ${t.k===tab?'on':''} ${EL[t.k]?'e-'+t.k:''}" data-a="ctab" data-k="${t.k}">${t.n}${t.c?` <span class="small muted num">${t.c}</span>`:''}</button>`).join('')}</div>
+  <div class="codex">${body}</div>`;
+}
+
+/* --- マップ --- */
+function rMap(){
+  const r=S.run,on=r.online;
+  if(!r.opts&&!on){r.opts=genOpts();saveRun()}
+  const opts=(r.opts||[]).map(t=>{const n=NODES[t];const name=t==='boss'?MON[bossOf(r.act)].n:n.n;const desc=t==='boss'?bossDesc(bossOf(r.act)):n.d;
+    return `<button class="opt k-${t}" data-a="node" data-k="${t}"><span class="ic">${n.ic}</span><span><span class="nm">${name}</span><br><span class="small muted">${desc}</span></span></button>`}).join('');
+  return `${statusHead()}
+  ${on?onlineMapParty()+onlineVoteUI():`<h3>次の行き先を選ぶ</h3><div class="opts">${opts}</div>`}
+  <div class="row"><button class="btn wide" data-a="arrange">魔法陣を組み替える（${r.N}×${r.N}・ルーン${allRunes().length}個）</button></div>
+  ${on?netFoot():S.ui.confirm?`<div class="panel confirm"><p>このランをあきらめますか？進行状況は失われます。</p><div class="row end"><button class="btn ghost" data-a="noabandon">続ける</button><button class="btn" data-a="abandon">あきらめる</button></div></div>`
+  :`<div class="row end"><button class="btn ghost small" data-a="askabandon">あきらめる</button></div>`}
+  <p class="small muted">${on?`オンライン（部屋 ${esc(NET.code)}）`:`シード ${r.seed}`}・呪いLv ${r.curse}・${CHARS[r.char].n}</p>`;
+}
+
+/* --- 戦闘 --- */
+function intentText(e,on){
+  // オンライン：攻撃は全員に、毒・弱体・封印は狙われた1人に
+  const who=on&&e.tg&&NET.cs&&NET.cs.pl[e.tg]?` → ${esc(NET.cs.pl[e.tg].nick)}`:'';
+  return MON[e.id].mv[e.mi].map(a=>{switch(a.a){
+    case 'atk':{const v=atkVal(e,a.v);return (a.x>1?`攻撃 ${v}×${a.x}`:`攻撃 ${v}`)+(on?' → 全員':'')}
+    case 'poison':return `毒 ${sc(a.v,e)}${who}`;case 'weak':return `弱体 ${a.v}${who}`;case 'seal':return `封印 ${a.v}${who}`;
+    case 'summon':return `召喚（${MON[a.id].n}${a.n>1?'×'+a.n:''}）`;case 'boom':return `自爆 ${atkVal(e,a.v)}`+(on?' → 全員':'');
+    case 'steal':return `強奪 ${atkVal(e,a.v)}`+(on?' → 全員':'');case 'flee':return '逃げようとしている';
+    case 'blockAll':return `味方全体に防御 ${sc(a.v,e)}`;case 'phase':return '実体が消える';case 'charge':return '力をためている';
+    case 'block':return `防御 ${sc(a.v,e)}`;case 'str':return `力 +${a.v}`;case 'poison':return `毒 ${sc(a.v,e)}`;
+    case 'weak':return `弱体 ${a.v}`;case 'heal':return `回復 ${sc(a.v,e)}`;case 'healAll':return `全体回復 ${sc(a.v,e)}`;case 'seal':return `封印 ${a.v}`;}}).join('・');
+}
+function rCombat(){
+  const r=S.run,c=S.cb;
+  const V=viewing();const N=V?V.N:r.N;const RC=S.replay&&S.replay.cur;
+  const t=tgt();
+  const en=c.enemies.map((e,i)=>{
+    // 仲間の詠唱を再生している間は、その時点のHP・防御を出す
+    const hpv=RC&&RC.hp&&RC.hp[i]!=null?RC.hp[i]:e.hp,blv=RC&&RC.bl&&RC.bl[i]!=null?RC.bl[i]:e.block;
+    const dead=hpv<=0;const st=[];
+    if(blv>0)st.push(`<span class="chip c-block">防御 ${blv}</span>`);
+    if(e.burn)st.push(`<span class="chip c-fire">延焼 ${e.burn}</span>`);
+    if(e.vuln)st.push(`<span class="chip c-water">脆弱 ${e.vuln}</span>`);
+    if(e.str)st.push(`<span class="chip c-hp">力 ${e.str>0?'+':''}${e.str}</span>`);
+    if(e.weak)st.push(`<span class="chip">弱体 ${e.weak}</span>`);
+    if(e.immune&&!dead)st.push(`<span class="chip c-star">${EL[e.immune].n}無効</span>`);
+    if(e.enraged&&!dead)st.push(`<span class="chip c-hp">激昂</span>`);
+    {const M=MON[e.id];if(!dead){if(M.spikes)st.push(`<span class="chip c-hp">トゲ ${M.spikes}</span>`);if(M.regen)st.push(`<span class="chip c-forest">再生</span>`);if(e.plate>0)st.push(`<span class="chip c-block">装甲 ${e.plate}</span>`);
+      if(M.rage)st.push(`<span class="chip c-hp">怒り</span>`);if(M.ritual)st.push(`<span class="chip c-star">儀式</span>`);if(M.split&&!e.splitDone)st.push(`<span class="chip">分裂</span>`);if(e.intangible)st.push(`<span class="chip c-star">実体なし</span>`);if(e.stole)st.push(`<span class="chip" style="color:var(--gold)">${e.stole}G</span>`)}}
+    const atk=MON[e.id].mv[e.mi].some(a=>['atk','boom','steal'].includes(a.a));
+    return `<button class="enemy ${dead?'dead':''} ${!dead&&e===t&&c.enemies.length>1?'tg':''} ${e.boss?'boss':''}" data-a="target" data-i="${i}" data-eid="${i}" ${dead?'disabled':''}>
+      <span class="intent ${atk&&!dead?'atk':''}">${dead?'撃破':intentText(e,!!c.online)}</span>
+      <span class="ename">${e.n}</span>
+      <span class="bar"><span style="width:${hpv/e.max*100}%"></span></span>
+      <span class="hpnum">${hpv} / ${e.max}</span>
+      ${st.length?`<span class="chips">${st.join('')}</span>`:''}
+    </button>`}).join('');
+  const pst=[];
+  if(c.block)pst.push(`<span class="chip c-block">防御 ${c.block}</span>`);
+  if(c.poison)pst.push(`<span class="chip c-forest">毒 ${c.poison}</span>`);
+  if(c.weak)pst.push(`<span class="chip c-hp">弱体 ${c.weak}</span>`);
+  if(c.power)pst.push(`<span class="chip c-star">魔力 +${c.power}</span>`);
+  if(c.charge)pst.push(`<span class="chip c-thunder">帯電 +${c.charge}</span>`);
+  if(c.thorns)pst.push(`<span class="chip c-forest">反撃 ${c.thorns}</span>`);
+  const pips=Math.max(c.mana,3+(has('crystal')?1:0));
+  let mana='';for(let k=0;k<pips;k++)mana+=`<i class="${k<c.mana?'full':''}"></i>`;
+  const lim=has('crown')?2:1;
+  let b=`<div class="board combat" style="--n:${N}">`;
+  for(let y=0;y<N;y++){
+    for(let x=0;x<N;x++){
+      const i=y*N+x,cell=V?V.cells[i]:r.board[i],inst=cell.r;
+      const hl=V?(S.replay?S.replay.hl:-1):c.hl;const sealed=V?cell.sl:c.sealed[i]>0;
+      const cls=[hl===i?'hl':'',c.info===i||(!V&&c.swap&&c.swap.first===i)?'sel':'',!V&&has('corner')&&isCorner(i)?'corner-glow':''].join(' ');
+      const inner=inst?`<span class="glyph">${EL[RUNES[inst.id].e].n}</span><span class="rn">${RUNES[inst.id].n}${inst.up?'+':''}</span><span class="rv">${tileVal(RUNES[inst.id],inst)}</span>${tileSub(RUNES[inst.id],inst)?`<span class="rv2">${tileSub(RUNES[inst.id],inst)}</span>`:''}`:'';
+      b+=`<button class="cell ${inst?'e-'+RUNES[inst.id].e:'none'} ${cls}" data-a="cinfo" data-i="${i}" data-row="${y}" data-col="${x}">${inner}${cell.m&&MODS[cell.m]?`<span class="mod">${MODS[cell.m].s}</span>`:''}${sealed&&inst?'<span class="seal">封</span>':''}</button>`;
+    }
+    const u=V?0:c.used.r[y];
+    b+=`<button class="line ${u>=lim?'used':''}" data-a="cast" data-k="r" data-i="${y}" ${c.busy||c.mana<1||u>=lim||(c.online&&!myTurn())?'disabled':''} aria-label="${y+1}行目を${c.rev&&!c.revUsed?'右から':''}詠唱">${c.rev&&!c.revUsed?'←':'→'}</button>`;
+  }
+  for(let x=0;x<N;x++){const u=V?0:c.used.c[x];b+=`<button class="line ${u>=lim?'used':''}" data-a="cast" data-k="c" data-i="${x}" ${c.busy||c.mana<1||u>=lim||(c.online&&!myTurn())?'disabled':''} aria-label="${x+1}列目を${c.rev&&!c.revUsed?'下から':''}詠唱">${c.rev&&!c.revUsed?'↑':'↓'}</button>`}
+  b+=`<span></span></div>`;
+  const infoCell=c.info!=null?(V?V.cells[c.info]:r.board[c.info])||null:null;
+  const info=infoCell?infoBlock(infoCell.r,infoCell)+((V?infoCell.sl:c.sealed[c.info]>0)&&infoCell.r?'<p class="small" style="color:var(--star)">このターンは封印されていて発動しない</p>':''):'';
+  const label=c.kind==='boss'?'ボス戦':c.kind==='elite'?'精鋭戦':'戦闘';
+  return `<div class="spread small muted"><span>第${r.act+1}幕 ${r.floor+1}階・${label}</span><span class="num">ターン ${c.turn}</span></div>
+  <div class="enemies">${en}</div>
+  ${c.online?onlineCombatBar():''}
+  <div class="panel player" id="pbar">
+    <span class="num">HP <b>${Math.max(0,r.hp)}</b> / ${r.maxHp}</span>
+    ${V?'':`<span class="mana" aria-label="マナ ${c.mana}">${mana}</span>`}
+    <span style="grid-column:1/-1">${hpBar()}</span>
+    ${pst.length?`<span class="chips" style="grid-column:1/-1">${pst.join('')}</span>`:''}
+  </div>
+  ${V?`<p class="label view-label">${esc(V.nick)}の魔法陣${S.replay?'（詠唱中）':V.mana!=null?`（残りマナ ${V.mana}）`:''}</p>`:''}
+  ${b}
+  <div class="row">
+    ${r.char==='apprentice'?`<button class="btn ghost ${c.rev?'on':''}" data-a="rev" ${c.revUsed||c.busy||(c.online&&!myTurn())?'disabled':''}>${c.revUsed?'逆詠唱（使用済み）':c.rev?'逆詠唱：次の詠唱':'逆詠唱'}</button>`:''}
+    ${r.char==='ranger'?`<button class="btn ghost ${c.swap?'on':''}" data-a="swap" ${c.swapUsed||c.busy||(c.online&&!myTurn())?'disabled':''}>${c.swapUsed?'植え替え（使用済み）':c.swap?(c.swap.first==null?'植え替え：動かすルーンを選ぶ':'植え替え：移す先を選ぶ'):'植え替え'}</button>`:''}
+    <button class="btn primary" style="margin-left:auto" data-a="endturn" ${c.busy||(c.online&&!myTurn())?'disabled':''}>ターン終了</button>
+  </div>
+  <div class="panel info side-info">${info||(t&&traitLines(t).length?`<p class="small"><b>${t.n}</b><br>${traitLines(t).join('<br>')}</p>`:'')+`<p class="muted">→ と ↓ のボタンで、その行か列を詠唱（マナ1）。マナがなくなると自動でターンが終わる。行は左から、列は上から順に発動し、交点のルーンは2回動く。矢印などの紋章があるマスでは通り道が変わる（ボタンに触れると通り道が光る）。ルーンを押すと説明を表示。${c.enemies.length>1?'敵を押すと狙いを変えられる。':''}</p>`}</div>
+  ${c.log.length?`<div class="log">${c.log.slice(-3).map(l=>`<span>${esc(l)}</span>`).join('')}</div>`:''}
+  ${relicChips()}
+  ${S.ui.relicInfo?`<p class="small"><b style="color:var(--gold)">${RELICS[S.ui.relicInfo].n}</b>：${RELICS[S.ui.relicInfo].d}</p>`:''}
+  ${c.online?netFoot():''}`;
+}
+
+/* --- 報酬 --- */
+function rReward(){
+  const q=S.queue[0],rw=S.reward||{};
+  let head=`<div class="panel"><h2>${rw.kind==='boss'?'ボスを倒した':'勝利'}</h2><p class="num">${rw.gold?`${rw.gold}ゴールドを手に入れた（所持 ${S.run.gold} G）`:''}${rw.kind==='boss'?'・HPが30%回復した':''}</p></div>`;
+  if(!q)return head;
+  if(q.t==='runes'){const sp=hasSpace();return `${head}<h3>ルーンを1つ選ぶ</h3>${sp?'':`<div class="panel confirm"><p class="small">${FULL_NOTE}</p></div>`}<div class="cards">${q.opts.map(id=>runeCard(id,`data-a="pickrune" data-k="${id}" ${sp?'':'disabled'}`)).join('')}</div><button class="btn ${sp?'ghost':'primary'} wide" data-a="skip">受け取らない</button>`}
+  if(q.t==='mod')return `${head}<h3>紋章を1つ選ぶ</h3><p class="small muted">選んだ紋章は魔法陣のマスに刻む。マスに付くので、ルーンを入れ替えても残る。</p><div class="cards">${q.opts.map(m=>`<button class="rcard" data-a="pickmod" data-k="${m}"><span class="nm">${MODS[m].n}</span><span class="d">${MODS[m].d}</span></button>`).join('')}</div><button class="btn ghost wide" data-a="skip">受け取らない</button>`;
+  if(q.t==='relic')return `${head}<h3>秘宝を1つ選ぶ</h3><div class="cards">${q.opts.map(k=>`<button class="rcard" data-a="pickrelic" data-k="${k}"><span class="nm" style="color:var(--gold)">${RELICS[k].n}</span><span class="d">${RELICS[k].d}</span>${RELICS[k].boss?'<span class="rar">ボス秘宝</span>':''}</button>`).join('')}</div>`;
+  if(q.t==='expand')return `${head}<div class="panel"><h3>魔法陣が${S.run.N+1}×${S.run.N+1}に広がる</h3><p class="small">新しいマスにルーンを置いて、組み替えよう。マナは3のままなので、どこに何を置くかがより大事になる。</p><button class="btn primary" data-a="doexpand">魔法陣を組み替える</button></div>`;
+  return head;
+}
+
+/* --- 魔法陣の編集 --- */
+// 強化前と強化後を並べて表示。変わる数字だけ色を変える
+function markDiff(nw,old){
+  const a=nw.split(/(\d+)/),b=(old||'').split(/(\d+)/);
+  return a.map((p,k)=>/^\d+$/.test(p)&&p!==b[k]?`<b class="up">${p}</b>`:p).join('');
+}
+function upgradeCompare(inst){
+  const d=RUNES[inst.id];const after={...inst,up:true};
+  const a=descRune(d,inst),b=descRune(d,after);
+  const before=`<div class="cmp-col"><p class="label">いま</p><p class="nm">${d.n} <span class="rv e-${d.e}">${tileVal(d,inst)}</span></p>${a.map(l=>`<p>${l}</p>`).join('')}</div>`;
+  const aft=`<div class="cmp-col after"><p class="label">強化後</p><p class="nm">${d.n}+ <span class="rv e-${d.e}">${markDiff(tileVal(d,after),tileVal(d,inst))}</span></p>${b.map((l,k)=>`<p>${markDiff(l,a[k])}</p>`).join('')}</div>`;
+  return `<div class="cmp">${before}<span class="arrow" aria-hidden="true">→</span>${aft}</div>`;
+}
+function rEdit(){
+  const r=S.run,N=r.N,m=S.editMode,sel=S.ui.sel;
+  const T={moveMod:'紋章の位置を変える',place:'ルーンを配置する',arrange:'魔法陣を組み替える',placeMod:'紋章を刻むマスを選ぶ',upgrade:'強化するルーンを選ぶ',remove:'処分するルーンを選ぶ',discard:'ルーンがいっぱい。1つ手放す'};
+  const SUB={moveMod:`動かす紋章のマスを選び、次に移す先のマスを選ぶ。移す先にも紋章があれば入れ替わる。ルーンはそのまま。（${MOVE_MOD_COST} G）`,place:'手持ちのルーンを押して選び、置きたいマスか予備を押す。置いたあとも、ルーン同士を押して入れ替えられる。手持ちを全部置くと完了できる。',arrange:'ルーンを押して選び、移したいマスか予備を押すと入れ替わる。',placeMod:`${S.pendingMod?MODS[S.pendingMod].n+'：'+MODS[S.pendingMod].d:''}。すでに紋章のあるマスは上書きされる。`,upgrade:'ルーンを選ぶと、いまの効果と強化後を見比べられる。強化済みのルーンは暗く表示される。',remove:'処分したルーンは戻らない。',discard:'新しいルーンか、持っているルーンから1つ選んで手放す。'};
+  let b=`<div class="board" style="--n:${N}">`;
+  for(let i=0;i<N*N;i++){
+    const cell=r.board[i];const isSel=sel&&sel.loc==='b'&&sel.i===i||(m==='moveMod'&&S.ui.sel2===i);
+    const base=runeTile(cell.r,{loc:'b',i},(isSel?'sel':'')+(m==='upgrade'&&cell.r&&cell.r.up?' ng':''));
+    b+=cell.m?base.replace('</button>',`<span class="mod">${MODS[cell.m].s}</span></button>`):base;
+  }
+  b+='</div>';
+  const rs=`<div class="reserve">${r.reserve.map((x,i)=>runeTile(x,{loc:'r',i},(sel&&sel.loc==='r'&&sel.i===i?'sel':'')+(m==='upgrade'&&x&&x.up?' ng':''))).join('')}</div>`;
+  const tray=m==='place'?`<p class="label">手持ち（まだ置いていないルーン）</p>${trayLeft()?`<div class="reserve">${(r.tray||[]).map((x,i)=>x?runeTile(x,{loc:'t',i},sel&&sel.loc==='t'&&sel.i===i?'sel':''):'').join('')}</div>`:'<p class="small muted">すべて置いた。</p>'}`:'';
+  const pend=m==='discard'&&S.pendingRune?`<p class="label">新しいルーン</p><div class="reserve">${runeTile(S.pendingRune,{loc:'p',i:0},sel&&sel.loc==='p'?'sel':'')}</div>`:'';
+  const selInst=m==='moveMod'?null:instAt(sel);const selCell=sel&&sel.loc==='b'?r.board[sel.i]:null;
+  const info=m==='moveMod'?(sel?`<p class="small" style="color:var(--gold)">${MODS[r.board[sel.i].m].n}：${MODS[r.board[sel.i].m].d}</p><p class="small muted">${S.ui.sel2==null?'移す先のマスを選ぶ':`${Math.floor(S.ui.sel2/N)+1}行${S.ui.sel2%N+1}列へ移す`+(r.board[S.ui.sel2].m?`（そこの${MODS[r.board[S.ui.sel2].m].n}と入れ替え）`:'')}</p>`:''):m==='upgrade'&&selInst&&!selInst.up?upgradeCompare(selInst):infoBlock(selInst,selCell);
+  let actions='';
+  if(m==='arrange')actions=`<button class="btn primary wide" data-a="editdone">完了</button>`;
+  else if(m==='place'){const n=trayLeft();actions=`<div class="row">${n?`<button class="btn ghost" data-a="autoplace">残りをおまかせで置く</button>`:''}<button class="btn primary" style="margin-left:auto" data-a="editdone" ${n?'disabled':''}>${n?`あと${n}個`:'完了'}</button></div>`}
+  else{
+    const lab={moveMod:'紋章を移す',placeMod:'このマスに刻む',upgrade:'このルーンを強化する',remove:'このルーンを処分する',discard:'これを手放す'}[m];
+    let ok=!!sel;if(m==='upgrade'&&selInst&&selInst.up)ok=false;if(m!=='placeMod'&&m!=='moveMod'&&!selInst)ok=false;if(m==='moveMod')ok=!!sel&&S.ui.sel2!=null;
+    actions=`<div class="row">${S.cancel?`<button class="btn ghost" data-a="editcancel">やめる</button>`:''}<button class="btn primary" style="margin-left:auto" data-a="editok" ${ok?'':'disabled'}>${lab}</button></div>`;
+    if(m==='upgrade'&&selInst&&selInst.up)actions+=`<p class="small muted">このルーンは強化済み。</p>`;
+  }
+  return `<div class="panel"><h2>${T[m]}</h2>${S.editNote?`<p style="color:var(--gold)">${S.editNote}</p>`:''}<p class="small muted">${SUB[m]}</p>${S.ui.err?`<p class="small" style="color:var(--hp)">${S.ui.err}</p>`:''}</div>
+  ${tray}
+  ${m==='place'?'<p class="label">魔法陣</p>':''}${b}
+  <p class="label">予備（戦闘では使えない）</p>${rs}
+  ${pend}
+  <div class="panel info">${info||'<p class="muted">ルーンかマスを選ぶと、ここに説明が出る。</p>'}</div>
+  ${actions}`;
+}
+
+/* --- 野営地・商人・遺跡・宝箱 --- */
+function rCamp(){
+  const r=S.run,v=Math.round(r.maxHp*0.3*(has('boots')?1.5:1));
+  return `${statusHead()}<div class="panel"><h2>野営地</h2><p>焚き火のそばで一息つく。どちらか1つを選ぶ。</p>
+    <button class="btn wide" data-a="rest">休む（HPを${v}回復）</button>
+    <button class="btn wide" data-a="campup" ${hasUpgradable()?'':'disabled'}>瞑想する（ルーンを1つ強化）</button></div>`;
+}
+function rShop(){
+  const r=S.run,sh=r.shop;
+  const sp=hasSpace();const rn=sh.runes.map((it,i)=>runeCard(it.id,`data-a="buyrune" data-i="${i}" ${it.sold||r.gold<it.p||!sp?'disabled':''}`,`<span class="price ${it.sold?'sold':''}">${it.sold?'売り切れ':!sp?'空きがない':it.p+' G'}</span>`).replace('class="rcard',`class="rcard ${it.sold?'sold':''}`)).join('');
+  const rl=sh.relics.map((it,i)=>`<button class="rcard ${it.sold?'sold':''}" data-a="buyrelic" data-i="${i}" ${it.sold||r.gold<it.p?'disabled':''}><span class="nm" style="color:var(--gold)">${RELICS[it.id].n}</span><span class="d">${RELICS[it.id].d}</span><span class="price">${it.sold?'売り切れ':it.p+' G'}</span></button>`).join('');
+  const md=sh.mod;
+  return `${statusHead()}<div class="panel"><h2>旅の商人</h2><p class="small muted">「いい品がそろってるよ。見ていきな」</p></div>
+  <h3>ルーン</h3>${sp?'':`<p class="small" style="color:var(--hp)">${FULL_NOTE}</p>`}<div class="cards">${rn}</div>
+  <h3>秘宝・紋章</h3><div class="cards">${rl}
+    <button class="rcard ${md.sold?'sold':''}" data-a="buymod" ${md.sold||r.gold<md.p?'disabled':''}><span class="nm">${MODS[md.id].n}</span><span class="d">${MODS[md.id].d}</span><span class="price">${md.sold?'売り切れ':md.p+' G'}</span></button></div>
+  <button class="btn wide" data-a="shopremove" ${sh.removed||r.gold<60||allRunes().length<=1?'disabled':''}>ルーンを1つ処分する（60 G）${sh.removed?'・利用済み':''}</button>
+  <button class="btn wide" data-a="shopmovemod" ${sh.modMoved||r.gold<MOVE_MOD_COST||!r.board.some(c=>c.m)?'disabled':''}>紋章の位置を変える（${MOVE_MOD_COST} G）${sh.modMoved?'・利用済み':!r.board.some(c=>c.m)?'・紋章がない':''}</button>
+  <button class="btn primary wide" data-a="leave">店を出る</button>`;
+}
+function rEvent(){
+  const ev=EVENTS.find(e=>e.id===S.run.ev);
+  if(S.evResult)return `${statusHead()}<div class="panel"><h2>${ev.t}</h2><p>${S.evResult.msg}</p><button class="btn primary" data-a="evnext">続ける</button></div>`;
+  return `${statusHead()}<div class="panel"><h2>${ev.t}</h2><p>${ev.x}</p>${['altar','tome'].includes(ev.id)&&!hasSpace()?`<p class="small" style="color:var(--hp)">${FULL_NOTE}</p>`:''}${ev.ch.map((c,i)=>`<button class="btn wide" data-a="evchoice" data-i="${i}" ${c.ok&&!c.ok()?'disabled':''}>${c.l}</button>`).join('')}</div>`;
+}
+function rTreasure(){
+  const id=S.reward&&S.reward.relic;
+  return `${statusHead()}<div class="panel"><h2>宝箱</h2><p>${id?`中には<b style="color:var(--gold)">${RELICS[id].n}</b>が入っていた。<br>${RELICS[id].d}`:'宝箱は空だった。'}</p><button class="btn primary" data-a="leave">先へ進む</button></div>`;
+}
+function rEnd(){
+  const e=S.endInfo;
+  return `<div class="hero"><h1 style="font-size:28px">${e.win?'封印は守られた':'冒険はここで終わった'}</h1>
+    <p class="muted">${e.win?'魔竜は再び眠りについた。塔に朝日が差し込む。':`第${e.act+1}幕 ${ACTS[e.act]?ACTS[e.act].n:''} ${e.floor+1}階で力尽きた。`}</p></div>
+  <div class="panel num">
+    <div class="spread"><span>魔法使い</span><b>${CHARS[e.char].n}</b></div>
+    <div class="spread"><span>呪いLv</span><b>${e.curse}</b></div>
+    <div class="spread"><span>倒した魔物</span><b>${e.kills}</b></div>
+    <div class="spread"><span>最大ダメージ</span><b>${e.best}</b></div>
+    <div class="spread"><span>ターン数</span><b>${e.turns}</b></div>
+    <div class="spread"><span>シード</span><b>${e.seed}</b></div>
+    ${e.win&&e.curse<10?`<p class="small" style="color:var(--gold)">呪いLv ${e.curse+1} が解放された。</p>`:''}
+  </div>
+  ${e.online&&NET.code?(NET.host?'<button class="btn primary wide" data-a="netreset">同じ部屋でもう一度（ロビーへ）</button>':'<p class="small muted" style="text-align:center">ホストがロビーに戻すと、同じ部屋でもう一度遊べる。</p>'):''}
+  <button class="btn ${e.online&&NET.code?'':'primary'} wide" data-a="totitle">${e.online&&NET.code?'部屋を出てタイトルへ':'タイトルへ'}</button>`;
+}
+
+/* ============ 操作 ============ */
+$app.addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-a]');if(!t||t.disabled)return;
+  const a=t.dataset.a,d=t.dataset;const r=S.run;
+  switch(a){
+    case 'totitle':S.ui.relicInfo=null;S.ui.flash='';if(NET.code)netLeave();goto('title');break;
+    case 'toonline':NET.err='';goto('online');break;
+    case 'netcreate':netOpen(true);break;
+    case 'netjoin':netOpen(false);break;
+    case 'netleave':netLeave();goto('title');break;
+    case 'netready':S.ui.netReady=!S.ui.netReady;sendMe();render();break;
+    case 'openlocal':location.href='http://localhost:8080/?server='+encodeURIComponent(location.origin)+(S.ui.code?'&code='+encodeURIComponent(S.ui.code):'');break;
+    case 'netchar':if(netCharOk(d.k)){S.ui.char=d.k;sendMe();render()}break;
+    case 'netcurse':if(NET.host&&NET.st){const maxC=meta.maxCurse;const cv=Math.max(0,Math.min(maxC,NET.st.curse+Number(d.d)));NET.st.curse=cv;render();post('settings',{curse:cv})}break;
+    case 'netstart':netStart();break;
+    case 'vote':netVote(d.k);break;
+    case 'netreset':post('reset');break;
+    case 'tochars':goto('chars');break;
+    case 'tocodex':goto('codex');break;
+    case 'torecords':goto('records');break;
+    case 'rlv':S.ui.rlv=d.k;render();break;
+    case 'askreset':S.ui.flash='';S.ui.confirm=true;render();break;
+    case 'noreset':S.ui.confirm=false;render();break;
+    case 'doreset':resetAll();S.ui.confirm=false;S.ui.flash='データを初期化しました。';render();break;
+    case 'ctab':S.ui.ctab=d.k;render();break;
+    case 'continue':{S.run=load(RK);if(!S.run)return render();allRunes().forEach(x=>{x.inst.id=fixId(x.inst.id)});if(S.run.shop)S.run.shop.runes.forEach(it=>{it.id=fixId(it.id)});if(S.run.tray)S.run.tray.forEach(x=>{if(x)x.id=fixId(x.id)});S.ui.relicInfo=null;const resume=()=>{if(S.run.pending)startNode(S.run.pending);else goto('map')};if(trayLeft())openPlace(resume,'置いていないルーンがある。置く場所を選ぼう');else{S.run.tray=null;resume()}}break;
+    case 'pickchar':S.ui.char=d.k;render();break;
+    case 'curse':S.ui.curse=Math.max(0,S.ui.curse+Number(d.d));render();break;
+    case 'start':S.ui.relicInfo=null;newRun(S.ui.char,S.ui.curse);break;
+    case 'relicinfo':S.ui.relicInfo=S.ui.relicInfo===d.k?null:d.k;render();break;
+    case 'node':S.ui.relicInfo=null;if(!r.online)chooseNode(d.k);break;
+    case 'arrange':openEdit('arrange',()=>{saveRun();goto(S.run&&S.run.online?netHome():'map')});break;
+    case 'askabandon':S.ui.confirm=true;render();break;
+    case 'noabandon':S.ui.confirm=false;render();break;
+    case 'abandon':endRun(false);break;
+    // 戦闘
+    case 'cast':cast(d.k,Number(d.i));break;
+    case 'endturn':endTurn();break;
+    case 'rev':if(!S.cb.revUsed){S.cb.rev=!S.cb.rev;render()}break;
+    case 'target':S.cb.target=Number(d.i);render();break;
+    case 'swap':if(S.cb&&!S.cb.swapUsed&&!S.cb.busy&&(!S.cb.online||myTurn())){S.cb.swap=S.cb.swap?null:{first:null};render()}break;
+    case 'cinfo':{
+      const i=Number(d.i),c=S.cb;
+      if(c.swap&&!c.busy&&(!c.online||myTurn())){
+        if(c.sealed[i]>0){c.info=i;render();break}
+        if(c.swap.first==null){if(r.board[i].r)c.swap.first=i;render();break}
+        if(c.swap.first===i){c.swap.first=null;render();break}
+        const a=c.swap.first,ra=r.board[a].r;r.board[a].r=r.board[i].r;r.board[i].r=ra;
+        c.swap=null;c.swapUsed=true;fx('c',a,'','mod');fx('c',i,'','mod');log('ルーンを植え替えた');if(c.online){pushMe();emitC()}render();break;
+      }
+      c.info=c.info===i?null:i;render()}break;
+    // 報酬
+    case 'pickrune':if(!hasSpace())break;S.queue.shift();give(d.k,contQueue);break;
+    case 'skip':S.queue.shift();contQueue();break;
+    case 'pickmod':S.queue.shift();S.pendingMod=d.k;openEdit('placeMod',contQueue);break;
+    case 'pickrelic':S.queue.shift();addRelic(d.k);contQueue();break;
+    case 'doexpand':S.queue.shift();expandBoard();openEdit('arrange',contQueue,null,`魔法陣が${r.N}×${r.N}に広がった`);break;
+    // 編集
+    case 'slot':{
+      S.ui.err=null;const loc=d.loc,i=Number(d.i),m=S.editMode,sel=S.ui.sel;const here={loc,i};
+      if(m==='arrange'||m==='place'){
+        if(loc==='p'||(loc==='t'&&m!=='place'))break;
+        const fromTray=sel&&sel.loc==='t';
+        if(sel&&sel.loc===loc&&sel.i===i)S.ui.sel=null;
+        else if(sel){const ia=instAt(sel),ib=instAt(here);setAt(sel,ib);setAt(here,ia);S.ui.sel=null;
+          if(m==='place'&&fromTray){const k=(r.tray||[]).findIndex(Boolean);if(k>=0)S.ui.sel={loc:'t',i:k}}}
+        else if(instAt(here))S.ui.sel=here;
+      }else if(m==='placeMod'){if(loc==='b')S.ui.sel=here}
+      else if(m==='moveMod'){if(loc!=='b')break;
+        if(!sel){if(r.board[i].m)S.ui.sel=here;else S.ui.err='まず、紋章のあるマスを選ぶ'}
+        else if(sel.i===i){S.ui.sel=null;S.ui.sel2=null}
+        else S.ui.sel2=S.ui.sel2===i?null:i}
+      else if(instAt(here))S.ui.sel=here;
+      render();
+    }break;
+    case 'autoplace':flushTray();S.ui.sel=null;saveRun();render();break;
+    case 'editdone':{if(S.editMode==='place'&&trayLeft())break;const f=S.after;S.after=null;S.ui.sel=null;f()}break;
+    case 'editcancel':{const f=S.cancel;S.cancel=null;S.after=null;S.ui.sel=null;S.ui.sel2=null;S.pendingMod=null;f()}break;
+    case 'editok':{
+      const m=S.editMode,sel=S.ui.sel;if(!sel)break;
+      if(m==='moveMod'){if(S.ui.sel2==null)break;const a=r.board[sel.i],b=r.board[S.ui.sel2];[a.m,b.m]=[b.m||null,a.m];r.gold-=MOVE_MOD_COST;r.shop.modMoved=true;S.ui.sel2=null}
+      else if(m==='placeMod'){r.board[sel.i].m=S.pendingMod;S.pendingMod=null}
+      else if(m==='upgrade'){const x=instAt(sel);if(x)x.up=true}
+      else if(m==='remove'){setAt(sel,null);r.gold-=60;r.shop.removed=true}
+      else if(m==='discard'){if(sel.loc!=='p')setAt(sel,S.pendingRune);S.pendingRune=null}
+      const f=S.after;S.after=null;S.cancel=null;S.ui.sel=null;saveRun();f();
+    }break;
+    // 施設
+    case 'rest':r.hp=Math.min(r.maxHp,r.hp+Math.round(r.maxHp*0.3*(has('boots')?1.5:1)));finishNode();break;
+    case 'campup':openEdit('upgrade',finishNode,()=>goto('camp'));break;
+    case 'buyrune':{const it=r.shop.runes[Number(d.i)];if(it.sold||r.gold<it.p||!hasSpace())break;r.gold-=it.p;it.sold=true;saveRun();give(it.id,()=>{saveRun();goto('shop')})}break;
+    case 'buyrelic':{const it=r.shop.relics[Number(d.i)];if(it.sold||r.gold<it.p)break;r.gold-=it.p;it.sold=true;addRelic(it.id);saveRun();render()}break;
+    case 'buymod':{const it=r.shop.mod;if(it.sold||r.gold<it.p)break;r.gold-=it.p;it.sold=true;S.pendingMod=it.id;saveRun();openEdit('placeMod',()=>{saveRun();goto('shop')})}break;
+    case 'shopmovemod':if(r.shop.modMoved||r.gold<MOVE_MOD_COST||!r.board.some(c=>c.m))break;S.ui.sel2=null;openEdit('moveMod',()=>{saveRun();goto('shop')},()=>goto('shop'));break;
+    case 'shopremove':openEdit('remove',()=>{saveRun();goto('shop')},()=>goto('shop'));break;
+    case 'leave':finishNode();break;
+    case 'evchoice':{const ev=EVENTS.find(e=>e.id===r.ev);const c=ev.ch[Number(d.i)];if(c.ok&&!c.ok())break;S.evResult=c.f();saveRun();render()}break;
+    case 'evnext':{const res=S.evResult;S.evResult=null;
+      if(res.give)give(res.give,finishNode);
+      else if(res.upgrade)openEdit('upgrade',finishNode);
+      else if(res.mod){S.pendingMod=res.mod;openEdit('placeMod',finishNode)}
+      else finishNode();
+    }break;
+  }
+});
+
+$app.addEventListener('input',ev=>{
+  const t=ev.target;
+  if(t.id==='nick'){S.ui.nick=t.value.slice(0,10);try{localStorage.setItem('runecircle_nick',S.ui.nick)}catch(e){}pushLocal()}
+  if(t.id==='code')S.ui.code=t.value.slice(0,4);
+  if(t.id==='hosturl')S.ui.hostUrl=t.value.slice(0,200);
+});
+
+/* ============ オンライン協力プレイ（サーバー版） ============ */
+// オンライン大富豪と同じ方式：server.js が部屋と進行を持ち、ブラウザは定期的に状態を取りに行く（ポーリング）。
+// 行き先は全員の投票で決め、割れたら票数に比例したルーレットで決まる（サーバーが抽選）。
+// 戦闘は1人ずつ順番に詠唱し、今動いている人だけが戦闘の状態を送れる。
+const NET={base:'',mode:'checking',code:'',me:null,token:'',st:null,cs:null,turnKey:'',enemyKey:'',startedKey:'',mapKey:'',doneKey:null,finished:{},err:'',timer:null,busyPoll:false,sig:'',lastMe:'',recvAt:0,creating:'',ended:false};
+const ONLINE_ATK=0.25; // 1人増えるごとの魔物の攻撃の上乗せ（HPは人数倍）
+const SPIN_MS=4200;
+const NODE_COLOR={battle:'var(--hp)',elite:'#b4473f',camp:'var(--forest)',shop:'var(--gold)',event:'var(--star)',treasure:'var(--thunder)',boss:'#8e3a3a'};
+try{S.ui.nick=localStorage.getItem('runecircle_nick')||''}catch(e){S.ui.nick=''}
+
+// サーバーから開かれているかを確認
+(async()=>{
+  if(location.protocol==='file:'){NET.mode='file'}
+  else{
+    try{const r=await fetch('/api/ping',{cache:'no-store'});const j=await r.json();NET.mode=j&&j.app==='runecircle'?'server':'none';NET.hosted=!!(j&&j.hosted)}catch(e){NET.mode='none'}
+  }
+  // フォルダへのセーブは、配布フォルダのサーバーで遊ぶときだけ。公開サイトやこのページの共有版ではブラウザにだけ保存する
+  if(NET.mode==='file'||(NET.mode==='server'&&!NET.hosted))localSaveInit();else{LOCAL.state='off';if(['title','online'].includes(S.screen))render()}
+  // 「自分のゲームで開く」から来たとき：ホストのURLと部屋コードを入れておく
+  try{const q=new URLSearchParams(location.search);const sv=q.get('server');if(sv){S.ui.hostUrl=sv;S.ui.code=(q.get('code')||'').toUpperCase().slice(0,4);history.replaceState(null,'',location.pathname);if(NET.mode==='server'&&S.screen==='title')return goto('online')}}catch(e){}
+  if(S.screen==='title'||S.screen==='online')render();
+})();
+const isLocalPage=()=>{try{return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)}catch(e){return false}};
+// 入力されたホストのURLを、接続先（オリジン）にする
+function hostBase(s){s=String(s||'').trim();if(!s)return '';if(!/^https?:\/\//i.test(s))s='http://'+s;try{const u=new URL(s);return u.origin===location.origin?'':u.origin}catch(e){return null}}
+
+async function api(method,url,body){
+  try{
+    const r=await fetch(NET.base+url,{method,headers:body?{'Content-Type':NET.base?'text/plain':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});
+    let j={};try{j=await r.json()}catch(e){}
+    return{status:r.status,json:j};
+  }catch(e){return{status:0,json:{error:'サーバーにつながりません'}}}
+}
+const post=(act,data)=>api('POST',`/api/room/${NET.code}/${act}`,Object.assign({playerId:NET.me,token:NET.token},data||{}));
+
+const isCombatNode=t=>t==='battle'||t==='elite'||t==='boss';
+const plOf=p=>NET.st&&NET.st.players.find(x=>x.id===p);
+const present=p=>{const x=plOf(p);return !!(x&&x.online&&!x.left)};
+const nickOf=p=>{const x=plOf(p);return esc((x&&x.name)||(NET.cs&&NET.cs.pl[p]&&NET.cs.pl[p].nick)||'？')};
+const netHome=()=>NET.st&&NET.st.stage==='map'?'map':'wait';
+Object.defineProperty(NET,'host',{get(){return !!(NET.st&&NET.st.hostId===NET.me)}});
+Object.defineProperty(NET,'hostPeer',{get(){return NET.st?NET.st.hostId:null}});
+
+/* --- 部屋に入る・出る --- */
+async function netOpen(host){
+  NET.err='';
+  if(NET.mode!=='server'){NET.err='サーバーにつながっていません。';return render()}
+  const name=String(S.ui.nick||'').trim();
+  if(!name){NET.err='名前を入力してください。';return render()}
+  if(!charUnlocked(S.ui.char))S.ui.char='apprentice';
+  let res;
+  if(host){NET.base='';res=await api('POST','/api/room',{name,char:S.ui.char})}
+  else{
+    const code=String(S.ui.code||'').trim().toUpperCase();
+    if(!/^[A-Z0-9]{4}$/.test(code)){NET.err='4文字の部屋コードを入力してください。';return render()}
+    const base=isLocalPage()?hostBase(S.ui.hostUrl):'';
+    if(base===null){NET.err='ホストのURLが正しくありません。';return render()}
+    NET.base=base;
+    if(base){const pg=await api('GET','/api/ping');if(pg.status!==200||!pg.json||pg.json.app!=='runecircle'){NET.base='';NET.err='そのURLのサーバーにつながりません。URLと、ホストのサーバーが動いているかを確かめてください。';return render()}}
+    res=await api('POST',`/api/room/${code}/join`,{name,char:S.ui.char});
+  }
+  if(res.status!==200){NET.err=res.json.error||'部屋に入れませんでした。';return render()}
+  Object.assign(NET,{code:res.json.code,me:res.json.playerId,token:res.json.token,st:null,cs:null,turnKey:'',enemyKey:'',startedKey:'',mapKey:'',doneKey:null,finished:{},sig:'',lastMe:'',creating:'',ended:false});
+  S.ui.netReady=false;
+  clearInterval(NET.timer);NET.timer=setInterval(netPoll,450);
+  goto('lobby');netPoll();
+}
+function netLeave(){
+  if(NET.code&&NET.me)post('leave');
+  clearInterval(NET.timer);
+  Object.assign(NET,{base:'',code:'',me:null,token:'',st:null,cs:null,err:'',doneKey:null,startedKey:'',mapKey:'',sig:''});
+  if(S.run&&S.run.online){S.run=null;S.cb=null}
+}
+async function netPoll(){
+  if(!NET.code||NET.busyPoll)return;
+  NET.busyPoll=true;
+  const res=await api('GET',`/api/room/${NET.code}?playerId=${NET.me}`);
+  NET.busyPoll=false;
+  if(!NET.code)return;
+  if(res.status===404){NET.err='部屋がなくなりました（サーバーが止まったか、長く使われていなかった可能性があります）。';clearInterval(NET.timer);render();return}
+  if(res.status!==200||!res.json.room){if(res.status===0&&!/つながりません/.test(NET.err)){NET.err='サーバーにつながりません。通信が戻ると自動で再開します。';render()}return}
+  if(/つながりません/.test(NET.err))NET.err='';
+  NET.recvAt=Date.now();
+  applyState(res.json.room);
+  sendMe();
+}
+function sendMe(){
+  if(!NET.code)return;const r=S.run;
+  const patch={char:S.ui.char,ready:!!S.ui.netReady,hp:r?Math.max(0,r.hp):0,max:r?r.maxHp:0,lantern:has('lantern')};
+  if(NET.host)patch.prog=hostProg();
+  const s=JSON.stringify(patch);if(s===NET.lastMe)return;NET.lastMe=s;
+  post('me',{patch});
+}
+
+/* --- サーバーの状態を画面に反映 --- */
+function stateSig(st){return JSON.stringify([st.rev,st.players.map(p=>[p.online,p.done,p.ready,p.char,p.hp]),st.hostId])}
+function applyState(st){
+  const prevSig=NET.sig;NET.st=st;NET.sig=stateSig(st);const changed=prevSig!==NET.sig;
+  const meP=st.players.find(p=>p.id===NET.me);
+  if(!meP){NET.err='部屋から外れました。';clearInterval(NET.timer);render();return}
+  if(st.phase==='lobby'){
+    if(S.run&&S.run.online){S.run=null;S.cb=null}
+    NET.ended=false;
+    if(S.screen!=='lobby')goto('lobby');else if(changed)render();
+    return;
+  }
+  if(!meP.inGame){NET.err='このゲームはすでに始まっているため、途中からは参加できません。';if(S.screen!=='lobby')goto('lobby');else if(changed)render();return}
+  if(st.stage==='end'){
+    if(S.run&&S.run.online&&!NET.ended){NET.ended=true;endRun(st.result==='win')}
+    else if(changed&&S.screen==='end')render();
+    return;
+  }
+  if(!S.run||!S.run.online){makeRun(S.ui.char,st.curse,true);meta.runs++;saveMeta();beginSetup(()=>goto(netHome()))}
+  const r=S.run;if(st.bossSeed)r.bosses=pickBosses(st.bossSeed);
+  if(st.stage==='map'){
+    const key=st.act+'-'+st.floor;
+    if(NET.mapKey!==key){
+      NET.mapKey=key;r.act=st.act;r.floor=st.floor;r.opts=st.opts;NET.doneKey=null;NET.cs=null;
+      if(S.cb&&S.cb.online&&S.screen==='combat')S.cb=null;
+      if(r.act>=1&&!meta.reached2){meta.reached2=true;saveMeta()}
+      if(S.screen!=='edit')goto('map');
+    }else if(changed&&S.screen==='map')render();
+    return;
+  }
+  if(st.stage==='node'){
+    const key=st.nodeKey;r.act=st.act;r.floor=st.floor;
+    if(NET.startedKey!==key){
+      NET.startedKey=key;NET.doneKey=null;
+      if(isCombatNode(st.node)){if(!(S.cb&&S.cb.online))goto('wait')}
+      else{r.pending=st.node;if(st.node==='event')r.ev=EVENTS[(st.evSeed>>>0)%EVENTS.length].id;startNode(st.node)}
+    }
+    if(isCombatNode(st.node)){
+      const cs=st.cs;
+      if(cs&&cs.nodeKey===key)adoptFromServer(cs);
+      else if(NET.host&&NET.creating!==key&&!(NET.cs&&NET.cs.nodeKey===key)){NET.creating=key;hostStartCombat(st.node)}
+      if(NET.host)hostTick();
+    }
+    if(changed&&S.screen==='wait')render();
+  }
+}
+
+/* --- ロビー・投票 --- */
+function netStart(){post('start').then(res=>{if(res.status!==200){NET.err=res.json.error||'始められませんでした。';render()}})}
+function netVote(opt){
+  const st=NET.st;if(!st||st.stage!=='map'||st.vote.result)return;
+  st.vote.votes[NET.me]=opt;render();
+  post('vote',{opt}).then(res=>{if(res.status!==200){NET.err=res.json.error||'投票できませんでした。';render()}});
+}
+function netDone(){
+  const st=NET.st;if(!st||st.stage!=='node')return;
+  NET.doneKey=st.nodeKey;post('done',{key:st.nodeKey});
+}
+
+/* --- 戦闘 --- */
+function hostStartCombat(kind){
+  const st=NET.st;const order=st.players.filter(p=>p.inGame&&p.online&&!p.left).map(p=>p.id);
+  if(!order.length)return;
+  const n=order.length;const enemies=makeEnemies(kind,n);const pl={};
+  for(const p of order){
+    const x=plOf(p),mine=p===NET.me;
+    pl[p]={nick:String(x.name||'？').slice(0,10),char:mine?S.run.char:x.char,hp:mine?S.run.hp:(x.hp||1),max:mine?S.run.maxHp:(x.max||60),block:0,poison:0,weak:0,power:0,thorns:0,down:false,seal:0,lantern:mine?has('lantern'):!!x.lantern};
+  }
+  enemies.forEach(e=>{e.tg=pick(order)});
+  NET.cs={id:'c'+Date.now().toString(36)+Math.floor(Math.random()*1e4),seq:1,nodeKey:st.nodeKey,kind,round:1,n,order,ai:0,auth:order[0],phase:'p',enemies,pl};
+  setupLocalCombat(NET.cs);post('cs',{cs:NET.cs});processCs();
+}
+function adoptFromServer(cs){
+  if(NET.finished[cs.id])return;
+  if(NET.cs&&NET.cs.id===cs.id&&!(cs.seq>NET.cs.seq))return;
+  adoptCs(cs);
+}
+function setupLocalCombat(cs){
+  flushTray();const r=S.run;allRunes().forEach(x=>{x.inst.g=0});
+  cs.enemies.forEach(e=>{meta.seen.mons[e.id]=1});saveMeta();
+  S.cb={id:cs.id,online:true,kind:cs.kind,enemies:cs.enemies,turn:cs.round,mana:0,used:{r:Array(r.N).fill(0),c:Array(r.N).fill(0)},block:0,poison:0,weak:0,power:0,thorns:0,sealed:Array(r.N*r.N).fill(0),once:{},rev:false,revUsed:true,target:0,busy:false,hl:-1,info:null,fxq:[],log:[]};
+  combatStartRelics();
+  r.pending=null;syncMeFromCs();goto('combat');
+}
+function syncMeFromCs(){const cs=NET.cs,c=S.cb;if(!cs||!c)return;const p=cs.pl[NET.me];if(!p)return;c.block=p.block;c.poison=p.poison;c.weak=p.weak;c.power=p.power;c.thorns=p.thorns;S.run.hp=p.hp}
+function pushMe(){const cs=NET.cs,c=S.cb;if(!cs||!c)return;const p=cs.pl[NET.me];if(!p)return;Object.assign(p,{block:c.block,poison:c.poison,weak:c.weak,power:c.power,thorns:c.thorns,hp:Math.max(0,S.run.hp),mana:c.mana,bd:boardSnap()});if(S.run.hp<=0)p.down=true}
+// 仲間に見せる自分の魔法陣（ルーン名・強化・成長・紋章・封印）
+function boardSnap(){const r=S.run,c=S.cb;return{N:r.N,c:r.board.map((cl,i)=>cl.r||cl.m?[cl.r?cl.r.id:0,cl.r&&cl.r.up?1:0,cl.r?cl.r.g:0,cl.m||0,c&&c.sealed[i]>0?1:0]:0)}}
+// 他の人の番のとき、その人の魔法陣を表示する
+function viewing(){
+  const cs=NET.cs,c=S.cb;if(!c||!c.online||!cs||cs.id!==c.id)return null;
+  const pid=S.replay?S.replay.pid:(cs.phase==='p'&&cs.auth!==NET.me?cs.auth:null);if(!pid)return null;
+  const P=cs.pl[pid];if(!P||!P.bd)return null;
+  const cells=P.bd.c.map(x=>x?{r:x[0]&&RUNES[x[0]]?{id:x[0],up:!!x[1],g:x[2]||0}:null,m:x[3]||null,sl:!!x[4]}:{r:null,m:null,sl:false});
+  return{pid,nick:P.nick,char:P.char,mana:S.replay?null:P.mana,N:P.bd.N,cells};
+}
+// 仲間の詠唱を再生する
+async function playReplay(rec,before){
+  const cs=NET.cs,c=S.cb;if(!c)return;const P=cs.pl[rec.pid];const nick=P?P.nick:'？';
+  S.replay={pid:rec.pid,hl:-1,cur:before?{hp:before.map(e=>e.hp),bl:before.map(e=>e.block)}:null};
+  log(`${nick}が${rec.k==='r'?rec.idx+1+'行目':rec.idx+1+'列目'}を${rec.rev?'逆から':''}詠唱`);render();
+  for(const st of rec.steps){
+    if(!S.replay||S.cb!==c||myTurn())break;
+    S.replay.hl=st.i;render();await sleep(200);if(!S.replay||S.cb!==c)break;
+    S.replay.cur=st;st.fx.forEach(f=>c.fxq.push(f.k==='p'?{...f,k:'q',i:rec.pid}:f));render();await sleep(160);
+  }
+  if(S.cb===c){(rec.log||[]).forEach(l=>log(`${nick}：${l}`));S.replay=null;render()}
+}
+function emitC(){const cs=NET.cs;if(!cs)return;cs.seq++;post('cs',{cs:JSON.parse(JSON.stringify(cs))})}
+const allDown=()=>{const cs=NET.cs;return cs.order.every(p=>cs.pl[p].down||!present(p))};
+const myTurn=()=>!!(NET.cs&&S.cb&&S.cb.online&&NET.cs.id===S.cb.id&&NET.cs.phase==='p'&&NET.cs.auth===NET.me);
+function adoptCs(cs){
+  const old=NET.cs;NET.cs=cs;
+  if(!S.cb||S.cb.id!==cs.id){if(!S.run)return;setupLocalCombat(cs)}
+  else{S.cb.enemies=cs.enemies;const rp=cs.cast&&cs.cast.pid!==NET.me&&NET.castSeen!==cs.cast.id;if(old&&old.id===cs.id&&!rp)diffFloats(old,cs);syncMeFromCs();
+    if(rp){NET.castSeen=cs.cast.id;playReplay(cs.cast,old&&old.id===cs.id?old.enemies:null)}}
+  processCs();if(!S.cb.busy)render();
+}
+function diffFloats(o,n){
+  n.enemies.forEach((e,i)=>{const a=o.enemies[i];if(!a)return;const d=e.hp-a.hp;if(d<0)fx('e',i,String(d),'dmg');else if(d>0)fx('e',i,'+'+d,'heal')});
+  for(const p of n.order){const a=o.pl[p],b=n.pl[p];if(!a||!b)continue;const d=b.hp-a.hp;if(!d)continue;const t=d<0?String(d):'+'+d,cls=d<0?'pdmg':'heal';if(p===NET.me)fx('p',0,t,cls);else fx('q',p,t,cls)}
+}
+function processCs(){
+  const cs=NET.cs;if(!cs||!S.cb||S.cb.id!==cs.id)return;
+  if(cs.phase==='win'){if(!NET.finished[cs.id]){NET.finished[cs.id]=1;setTimeout(onlineWin,500)}return}
+  if(cs.phase==='lose'){if(!NET.finished[cs.id]){NET.finished[cs.id]=1;setTimeout(()=>{if(S.run&&S.run.online&&!NET.ended){NET.ended=true;post('finish',{win:false});endRun(false)}},700)}return}
+  if(cs.phase==='p'&&cs.auth===NET.me){const key=cs.id+':'+cs.round+':'+cs.ai;if(NET.turnKey!==key){NET.turnKey=key;startMyTurn()}}
+  if(cs.phase==='e'&&NET.host&&cs.auth===NET.me){const key=cs.id+':'+cs.round;if(NET.enemyKey!==key){NET.enemyKey=key;hostEnemyPhase()}}
+}
+function hostTick(){
+  const cs=NET.cs;if(!NET.host||!cs||!S.cb||S.cb.id!==cs.id||S.cb.busy)return;
+  if(cs.phase==='p'&&cs.auth!==NET.me&&!present(cs.auth)){cs.pl[cs.auth].down=true;passTurn();return}
+  if(cs.phase==='e'&&cs.auth!==NET.me&&!present(cs.auth)){cs.auth=NET.me;emitC();processCs()}
+}
+function startMyTurn(){
+  S.replay=null;const cs=NET.cs,c=S.cb,r=S.run,N=r.N,p=cs.pl[NET.me];
+  if(!p||p.down)return passTurn();
+  c.turn=cs.round;r.stats.turns++;
+  c.block=(cs.round===1&&has('hat')?8:0)+(has('iron')?3:0);
+  c.mana=3+(has('crystal')?1:0)+(cs.round===1&&has('hourglass')?2:0);
+  c.used={r:Array(N).fill(0),c:Array(N).fill(0)};c.once={};c.thorns=has('thornc')?2:0;c.rev=false;c.revUsed=false;c.swap=null;c.swapUsed=false;c.busy=false;
+  c.poison=p.poison;c.weak=p.weak;c.power=p.power;
+  if(has('amulet')){c.poison=Math.max(0,c.poison-2);c.weak=Math.max(0,c.weak-1)}
+  if(cs.round===1&&!c.firstDone){c.firstDone=true;firstTurnRelics(cs.enemies)}
+  if(p.seal>0){const cand=r.board.map((cl,i)=>cl.r&&c.sealed[i]<1?i:-1).filter(i=>i>=0);for(const i of shuffle(cand).slice(0,p.seal)){c.sealed[i]=1;fx('c',i,'封印','info')}log('ルーンが封印された');p.seal=0}
+  pushMe();emitC();render();
+}
+function passTurn(){
+  const cs=NET.cs;if(!cs)return;
+  let k=cs.ai+1;while(k<cs.order.length&&(cs.pl[cs.order[k]].down||!present(cs.order[k])))k++;
+  if(k<cs.order.length){cs.ai=k;cs.auth=cs.order[k]}else{cs.phase='e';cs.auth=NET.hostPeer||cs.order[0]}
+  emitC();processCs();render();
+}
+function afterOnlineCast(){
+  const cs=NET.cs;pushMe();
+  if(allDead()){cs.phase='win';emitC();processCs();render();return}
+  if(cs.pl[NET.me].down){if(allDown()){cs.phase='lose';emitC();processCs();render();return}return passTurn()}
+  emitC();render();
+  // マナが尽きたら自動でターン終了
+  const c=S.cb;if(c&&c.mana<1)setTimeout(()=>{if(S.cb===c&&!c.busy&&c.mana<1&&myTurn()&&S.screen==='combat')endTurn()},450);
+}
+function endTurnOnline(){
+  const c=S.cb,r=S.run;if(c.busy||!myTurn())return;
+  c.info=null;c.rev=false;
+  if(c.poison>0){r.hp-=c.poison;fx('p',0,'毒 -'+c.poison,'pdmg');c.poison--}
+  c.weak=Math.max(0,c.weak-1);c.sealed=c.sealed.map(v=>Math.max(0,v-1));c.mana=0;
+  pushMe();const cs=NET.cs;
+  if(cs.pl[NET.me].down&&allDown()){cs.phase='lose';emitC();processCs();render();return}
+  passTurn();
+}
+async function hostEnemyPhase(){
+  const cs=NET.cs,c=S.cb;if(!c)return;
+  c.busy=true;
+  for(const e of cs.enemies){if(e.hp>0&&e.burn>0){e.hp=Math.max(0,e.hp-e.burn);fx('e',cs.enemies.indexOf(e),'-'+e.burn,'burn');e.burn--}}
+  cs.enemies.forEach(e=>{e.vuln=Math.max(0,e.vuln-1)});
+  emitC();render();
+  if(allDead()){c.busy=false;cs.phase='win';emitC();processCs();return}
+  await sleep(450);
+  for(const e of [...cs.enemies]){
+    if(e.hp<=0)continue;if(NET.cs!==cs){c.busy=false;return}
+    enemyPre(e,cs.enemies);shake(`[data-eid="${cs.enemies.indexOf(e)}"]`);
+    for(const a of MON[e.id].mv[e.mi]){await enemyActOnline(e,a);if(allDown()||e.hp<=0)break}
+    e.mi=(e.mi+1)%MON[e.id].mv.length;e.weak=Math.max(0,e.weak-1);
+    syncMeFromCs();emitC();render();
+    if(allDown()){c.busy=false;cs.phase='lose';emitC();processCs();return}
+    if(allDead()){c.busy=false;cs.phase='win';emitC();processCs();return}
+    await sleep(300);
+  }
+  cs.round++;
+  const alivePl=cs.order.filter(p=>!cs.pl[p].down&&present(p));
+  cs.enemies.forEach(e=>{if(e.hp<=0)return;if(MON[e.id].immune)e.immune=pick(Object.keys(EL));e.tg=pick(alivePl)});
+  const k=cs.order.findIndex(p=>!cs.pl[p].down&&present(p));cs.ai=k;cs.auth=cs.order[k];cs.phase='p';
+  c.busy=false;emitC();processCs();render();
+}
+async function enemyActOnline(e,a){
+  const cs=NET.cs,ei=cs.enemies.indexOf(e);
+  let tg=e.tg;
+  if(!cs.pl[tg]||cs.pl[tg].down||!present(tg)){const al=cs.order.filter(p=>!cs.pl[p].down&&present(p));if(!al.length)return;tg=e.tg=pick(al)}
+  const P=cs.pl[tg],wk=tg===NET.me?'p':'q',wi=tg===NET.me?0:tg;
+  switch(a.a){
+    case 'atk':for(let k=0;k<a.x;k++){
+      // 攻撃は、倒れていない全員に当たる
+      const all=cs.order.filter(p=>!cs.pl[p].down&&present(p));if(!all.length)break;
+      for(const id of all){
+        const Q=cs.pl[id],qk=id===NET.me?'p':'q',qi=id===NET.me?0:id;
+        const d=atkVal(e,a.v);const blk=Math.min(Q.block,d);Q.block-=blk;const dm=d-blk;Q.hp-=dm;fx(qk,qi,dm>0?'-'+dm:'防御','pdmg');
+        if(Q.thorns>0&&e.hp>0){e.hp=Math.max(0,e.hp-Q.thorns);fx('e',ei,'反撃 -'+Q.thorns,'dmg')}
+        if(Q.hp<=0){Q.hp=0;Q.down=true;log(`${Q.nick}が倒れた`)}
+      }
+      syncMeFromCs();render();await sleep(200);if(e.hp<=0)return}break;
+    case 'block':{const v=sc(a.v,e);e.block+=v;fx('e',ei,'防御+'+v,'blk')}break;
+    case 'str':e.str+=a.v;fx('e',ei,'力+'+a.v,'info');break;
+    case 'poison':{const pv=sc(a.v,e);const v=P.lantern?Math.floor(pv/2):pv;P.poison+=v;fx(wk,wi,'毒+'+v,'info')}break;
+    case 'weak':P.weak+=a.v;fx(wk,wi,'弱体+'+a.v,'info');break;
+    case 'heal':{const v=sc(a.v,e);e.hp=Math.min(e.max,e.hp+v);fx('e',ei,'+'+v,'heal')}break;
+    case 'healAll':{const v=sc(a.v,e);cs.enemies.filter(x=>x.hp>0).forEach(x=>{x.hp=Math.min(x.max,x.hp+v);fx('e',cs.enemies.indexOf(x),'+'+v,'heal')})}break;
+    case 'seal':P.seal=(P.seal||0)+a.v;log(`${e.n}が${P.nick}のルーンを封印した`);break;
+    case 'summon':{for(let k=0;k<a.n;k++)spawnEnemy(cs.enemies,a.id,e);log(`${e.n}が${MON[a.id].n}を呼んだ`)}break;
+    case 'boom':case 'steal':{
+      // 自爆・強奪の攻撃も全員に当たる（オンラインではゴールドは盗まれない）
+      for(const id of cs.order.filter(p=>!cs.pl[p].down&&present(p))){const Q=cs.pl[id],qk=id===NET.me?'p':'q',qi=id===NET.me?0:id;
+        const d=atkVal(e,a.v);const blk=Math.min(Q.block,d);Q.block-=blk;const dm=d-blk;Q.hp-=dm;fx(qk,qi,dm>0?'-'+dm:'防御','pdmg');if(Q.hp<=0){Q.hp=0;Q.down=true;log(`${Q.nick}が倒れた`)}}
+      if(a.a==='boom'){e.hp=0;fx('e',ei,'自爆','dmg');log(`${e.n}が自爆した`)}}break;
+    case 'flee':e.hp=0;e.fled=true;fx('e',ei,'逃走','info');log(`${e.n}は逃げ出した`);break;
+    case 'blockAll':{const v=sc(a.v,e);cs.enemies.filter(x=>x.hp>0).forEach(x=>{x.block+=v;fx('e',cs.enemies.indexOf(x),'防御+'+v,'blk')})}break;
+    case 'phase':e.intangible=true;fx('e',ei,'実体が消えた','info');break;
+    case 'charge':fx('e',ei,'力をためている','info');break;
+  }
+  syncMeFromCs();emitC();render();await sleep(150);
+}
+function onlineWin(){
+  if(!S.run||!S.cb||!S.cb.online)return;
+  const r=S.run;if(r.hp<=0)r.hp=Math.max(1,Math.round(r.maxHp*0.25));
+  if(S.cb.kind==='boss'&&r.act===2&&!NET.ended){NET.ended=true;post('finish',{win:true})}
+  winCombat();
+}
+
+/* --- 画面 --- */
+function partyCard(p,{act,down,line}){
+  return `<div class="pm ${act?'act':''} ${down?'down':''}" data-pid="${esc(p)}"><b>${nickOf(p)}</b>${p===NET.me?' <span class="muted">（あなた）</span>':''}<br><span class="small muted num">${line}</span></div>`;
+}
+function netFoot(){
+  return `${NET.err?`<p class="small" style="color:var(--hp)">${NET.err}</p>`:''}<div class="row end"><button class="btn ghost small" data-a="netleave">部屋を出る</button></div>`;
+}
+function rOnline(){
+  const body=NET.mode==='checking'?'<p class="muted">接続を確認しています…</p>'
+  :NET.mode==='file'?'<div class="panel confirm"><p><b>このファイルを直接開いても、オンラインでは遊べません。</b></p><p class="small">フォルダの <b>start.bat</b>（Macは <b>start-mac.command</b>）をダブルクリックしてサーバーを起動し、表示されたURLをブラウザで開いてください。</p></div>'
+  :NET.mode==='none'?'<div class="panel confirm"><p><b>オンラインは配布用のサーバー版で遊べます。</b></p><p class="small">「ルーンサークル」フォルダの start.bat（Macは start-mac.command）でサーバーを起動し、表示されたURLを開いてください。ここでは一人用だけ遊べます。</p></div>'
+  :`<div class="panel"><label class="label" for="nick">名前（仲間に表示される）</label><input id="nick" class="field" maxlength="10" value="${esc(S.ui.nick||'')}" autocomplete="off">
+     <button class="btn primary wide" data-a="netcreate">部屋を作る（ホスト）</button></div>
+   <div class="panel"><label class="label" for="code">部屋コードで参加</label><input id="code" class="field" maxlength="4" value="${esc(S.ui.code||'')}" autocomplete="off" placeholder="例：K7MQ" style="text-transform:uppercase">
+     ${isLocalPage()?`<label class="label" for="hosturl" style="margin-top:8px">ホストのURL（ほかの人の部屋に入るとき）</label><input id="hosturl" class="field" value="${esc(S.ui.hostUrl||'')}" autocomplete="off" placeholder="例：https://〇〇.trycloudflare.com"><span class="small muted">ホストから送られたURLを入れる。自分のパソコンで作った部屋に入るときは空のまま。</span>`:''}
+     <button class="btn wide" data-a="netjoin">参加する</button></div>
+   ${!isLocalPage()&&!NET.hosted&&LOCAL.state!=='ok'?`<div class="panel"><p class="small"><b>ゲームのフォルダを持っている人へ</b></p><p class="small muted">自分の start.bat（Macは start-mac.command）を起動してから下のボタンを押すと、自分のパソコンのゲームからこの部屋に参加できる。進行度（キャラの解放・戦績・図鑑）が自分のフォルダに保存される。</p><button class="btn wide" data-a="openlocal">自分のフォルダのゲームで開く</button></div>`:''}`;
+  return `<div class="spread"><h2>オンラインで遊ぶ</h2><button class="btn ghost" data-a="totitle">戻る</button></div>
+  <div class="panel"><p>部屋に集まった仲間（最大4人）と、同じ道を進んで一緒に戦う。行き先は全員の投票で決まり、票が割れたら票数に比例したルーレットで決まる。戦闘では1人ずつ順番に詠唱する。魔物の攻撃は全員に当たる。報酬・商人・野営地・遺跡は各自で選ぶ。</p>
+  <p class="small muted">人数が増えるほど魔物は強くなる。HPは人数倍、攻撃は1人増えるごとに+25%。倒れた仲間は戦闘に勝つとHP25%で復活し、全員が倒れると冒険が終わる。</p></div>
+  ${body}
+  <p class="small muted">${saveNote()}</p>
+  ${NET.err?`<p class="small" style="color:var(--hp)">${NET.err}</p>`:''}`;
+}
+function rLobby(){
+  const st=NET.st;
+  if(!st)return `<div class="spread"><h2>オンラインの部屋</h2><button class="btn ghost" data-a="netleave">部屋を出る</button></div><p class="muted">部屋に接続しています…</p>${NET.err?`<p class="small" style="color:var(--hp)">${NET.err}</p>`:''}`;
+  const peers=st.players.filter(p=>!p.left);const inGame=st.phase!=='lobby';
+  const list=peers.map(p=>partyCard(p.id,{act:p.id===st.hostId||p.ready,down:!p.online,line:`${CHARS[p.char]?CHARS[p.char].n:''}・${!p.online?'切断':p.id===st.hostId?'ホスト':p.ready?'準備OK':'準備中'}`})).join('');
+  const others=peers.filter(p=>p.id!==NET.me&&p.online);const allReady=others.every(p=>p.ready);
+  const n=Math.max(1,peers.filter(p=>p.online).length);const maxC=meta.maxCurse;
+  if(!inGame&&!netCharOk(S.ui.char)){S.ui.char='apprentice';setTimeout(sendMe,0)}
+  const chars=Object.keys(CHARS).map(id=>`<button class="tab ${S.ui.char===id?'on':''}" data-a="netchar" data-k="${id}" ${netCharOk(id)&&!inGame?'':'disabled'}>${CHARS[id].n}</button>`).join('');
+  const lockedNote=Object.keys(CHARS).filter(id=>!netCharOk(id)).map(id=>`${CHARS[id].n}（ホストが${CHARS[id].lockText.replace('すると解放','').replace('に到達','に到達')}していない）`).join('、');
+  return `<div class="spread"><h2>オンラインの部屋</h2><button class="btn ghost" data-a="netleave">部屋を出る</button></div>
+  <div class="panel"><span class="label">部屋コード</span><span class="code">${esc(NET.code)}</span><span class="small muted">このコードを仲間に伝えて、「部屋コードで参加」から入ってもらう。</span></div>
+  <h3>参加者 ${peers.length}人</h3><div class="party">${list}</div>
+  <div class="panel"><b>使う魔法使い</b><div class="tabs">${chars}</div><p class="small muted">使える属性：${CHARS[S.ui.char].els.map(e=>EL[e].n).join('・')}</p><p class="small muted">選べるキャラはホストの進行度に合わせている。${lockedNote?'まだ選べない：'+lockedNote:''}</p></div>
+  ${NET.host?`<div class="panel"><div class="spread"><b>呪いLv</b><div class="stepper"><button class="btn" data-a="netcurse" data-d="-1" ${st.curse<=0||inGame?'disabled':''} aria-label="呪いLvを下げる">−</button><b class="num" style="font-size:18px">${st.curse}</b><button class="btn" data-a="netcurse" data-d="1" ${st.curse>=maxC||inGame?'disabled':''} aria-label="呪いLvを上げる">＋</button></div></div>
+      <p class="small muted">いまの人数（${n}人）なら、魔物のHP ×${n}、攻撃 ×${(1+ONLINE_ATK*(n-1)).toFixed(2)}</p>
+      <button class="btn primary wide" data-a="netstart" ${!allReady||inGame?'disabled':''}>${allReady?'冒険を始める':'全員の準備を待っています'}</button></div>`
+    :`<div class="panel"><p class="small muted">呪いLv ${st.curse}（ホストが決める）</p><button class="btn ${S.ui.netReady?'':'primary'} wide" data-a="netready" ${inGame?'disabled':''}>${S.ui.netReady?'準備を取り消す':'準備OK'}</button></div>`}
+  ${NET.err?`<p class="small" style="color:var(--hp)">${NET.err}</p>`:''}`;
+}
+function rWait(){
+  const st=NET.st;if(!st||!S.run)return rLobby();
+  const key=st.nodeKey;const fight=st.stage==='node'&&isCombatNode(st.node)&&!NET.doneKey;
+  const list=st.players.filter(p=>p.inGame).map(p=>{const done=p.id===NET.me?NET.doneKey===key:p.done===key;return partyCard(p.id,{act:done,down:!p.online,line:`${!p.online?'切断':fight?'戦闘準備中':done?'完了':'選択中'}・HP ${p.id===NET.me?S.run.hp:p.hp}/${p.id===NET.me?S.run.maxHp:p.max}`})}).join('');
+  return `${statusHead()}
+  <div class="panel"><h2>${fight?'戦闘の準備中':'仲間を待っています'}</h2><p class="small muted">${fight?'まもなく戦闘が始まる。':'全員が終わると、次の階の行き先を投票する。'}</p></div>
+  <div class="party">${list}</div>
+  <button class="btn wide" data-a="arrange">魔法陣を組み替える</button>
+  ${netFoot()}`;
+}
+/* マップ：投票とルーレット */
+function onlineVoteUI(){
+  const st=NET.st,r=S.run;if(!st||st.stage!=='map')return '';
+  const v=st.vote,live=st.players.filter(p=>p.inGame&&p.online);
+  const voted=live.filter(p=>v.votes[p.id]!==undefined).length;
+  const mine=v.votes[NET.me];
+  const opts=(r.opts||[]).map(t=>{
+    const n=NODES[t];const name=t==='boss'?MON[bossOf(r.act)].n:n.n;const desc=t==='boss'?bossDesc(bossOf(r.act)):n.d;
+    const who=live.filter(p=>v.votes[p.id]===t).map(p=>`<span class="chip">${esc(p.name)}</span>`).join('');
+    return `<button class="opt k-${t} ${mine===t?'voted':''}" data-a="vote" data-k="${t}" ${v.result?'disabled':''}><span class="ic">${n.ic}</span><span><span class="nm">${name}</span>${mine===t?' <span class="chip relic">あなたの票</span>':''}<br><span class="small muted">${desc}</span>${who?`<span class="chips" style="margin-top:4px">${who}</span>`:''}</span></button>`;
+  }).join('');
+  let wheel='';
+  if(v.result){
+    const total=v.order.reduce((s,o)=>s+v.tally[o],0);let a=0;const stops=[];
+    const legend=v.order.map(o=>{const span=360*v.tally[o]/total;stops.push(`${NODE_COLOR[o]} ${a}deg ${a+span}deg`);a+=span;return `<span class="chip" style="border-color:${NODE_COLOR[o]}"><i class="dot" style="background:${NODE_COLOR[o]}"></i>${NODES[o].n} ${v.tally[o]}票（${Math.round(100*v.tally[o]/total)}%）</span>`}).join('');
+    const elapsed=(st.serverNow-v.at)+(Date.now()-NET.recvAt);
+    const done=!v.spin||elapsed>=SPIN_MS;
+    wheel=`<div class="panel roulette">
+      <h3>${v.spin?(done?`${NODES[v.result].n}に決まった`:'ルーレットで決めています…'):`全員一致で${NODES[v.result].n}に決まった`}</h3>
+      ${v.spin?`<div class="wheelbox"><span class="pointer" aria-hidden="true"></span><div id="wheel" class="wheel" style="background:conic-gradient(${stops.join(',')})" data-target="${v.target}" data-elapsed="${Math.round(elapsed)}"></div></div>`:''}
+      <div class="chips" style="justify-content:center">${legend}</div></div>`;
+  }
+  return `${wheel}
+  <h3>${v.result?'行き先':`行き先に投票する（${voted}/${live.length}人）`}</h3>
+  <p class="small muted">${v.result?'':'全員が投票すると決まる。票が割れたら、票数に比例した確率のルーレットで決まる。決まるまでは投票し直せる。'}</p>
+  <div class="opts">${opts}</div>`;
+}
+// ルーレットを回す（描画のたびに、経過時間に合わせて続きから回す）
+function spinWheel(){
+  const w=$app.querySelector('#wheel');if(!w)return;
+  const target=Number(w.dataset.target),elapsed=Number(w.dataset.elapsed)+(Date.now()-NET.recvAt);
+  const final=360*6-target;
+  const remain=Math.max(0,SPIN_MS-elapsed);
+  const start=remain<=0?final:final*Math.min(0.95,elapsed/SPIN_MS);
+  w.style.transition='none';w.style.transform=`rotate(${start}deg)`;
+  void w.offsetWidth;
+  if(remain>0){w.style.transition=`transform ${remain}ms cubic-bezier(.15,.65,.12,1)`;w.style.transform=`rotate(${final}deg)`}
+}
+function onlineMapParty(){
+  const st=NET.st;if(!st)return '';
+  return `<div class="party">${st.players.filter(p=>p.inGame).map(p=>partyCard(p.id,{act:st.vote.votes[p.id]!==undefined,down:!p.online,line:`${CHARS[p.char]?CHARS[p.char].n:''}・HP ${p.id===NET.me?S.run.hp:p.hp}・${!p.online?'切断':st.vote.votes[p.id]!==undefined?'投票済み':'考え中'}`})).join('')}</div>`;
+}
+function onlineCombatBar(){
+  const cs=NET.cs;if(!cs||!S.cb||cs.id!==S.cb.id)return '';
+  const whose=cs.pl[cs.auth]?esc(cs.pl[cs.auth].nick):'？';
+  const ban=cs.phase==='p'?(cs.auth===NET.me?'あなたの番':`${whose}の番`):cs.phase==='e'?'魔物の番':cs.phase==='win'?'勝利':'全滅';
+  const list=cs.order.map(p=>{const P=cs.pl[p],on=present(p),st=[];if(P.block)st.push(`防御${P.block}`);if(P.poison)st.push(`毒${P.poison}`);if(P.weak)st.push(`弱体${P.weak}`);
+    return `<div class="pm ${cs.phase==='p'&&cs.auth===p?'act':''} ${P.down||!on?'down':''}" data-pid="${esc(p)}"><b>${esc(P.nick)}</b>${p===NET.me?' <span class="muted">（あなた）</span>':''}<span class="bar"><span style="width:${Math.max(0,P.hp)/P.max*100}%"></span></span><span class="small muted num">${P.down?'戦闘不能':!on?'切断':`HP ${P.hp}/${P.max}`}${st.length?'・'+st.join(' '):''}</span></div>`}).join('');
+  return `<div class="banner ${cs.phase==='p'&&cs.auth===NET.me?'mine':''}">${ban}</div><div class="party side-party">${list}</div>`;
+}
+
+// 行・列ボタンに触れると、詠唱の通り道（紋章で曲がる分も含む）を順番つきで光らせる
+function clearPreview(){$app.querySelectorAll('.cell.pv').forEach(el=>{el.classList.remove('pv');delete el.dataset.step})}
+function previewPath(btn){
+  clearPreview();if(!btn||btn.disabled||S.screen!=='combat'||!S.cb)return;
+  const c=S.cb;const path=castPath(btn.dataset.k,Number(btn.dataset.i),c.rev&&!c.revUsed);
+  path.forEach((i,n)=>{const el=$app.querySelector(`.cell[data-i="${i}"]`);if(el){el.classList.add('pv');el.dataset.step=el.dataset.step?el.dataset.step+'・'+(n+1):String(n+1)}});
+}
+$app.addEventListener('pointerover',e=>{const b=e.target.closest('.line');if(b)previewPath(b)});
+$app.addEventListener('pointerout',e=>{if(e.target.closest('.line'))clearPreview()});
+$app.addEventListener('focusin',e=>{const b=e.target.closest('.line');if(b)previewPath(b)});
+$app.addEventListener('focusout',e=>{if(e.target.closest('.line'))clearPreview()});
+
+render();
+</script>

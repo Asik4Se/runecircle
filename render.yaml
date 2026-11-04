@@ -6,7 +6,7 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: node server.js
-    healthCheckPath: /api/ping
+    healthCheckPath: /healthz
     autoDeploy: true
     envVars:
       - key: RC_HOSTED

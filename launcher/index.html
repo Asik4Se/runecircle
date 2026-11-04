@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0c14">
+<title>ゲームを選ぶ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* レイアウト：中央の1列、カードは幅に応じて1〜2列。各カードの色はゲームの meta.colors から */
+  :root {
+    --bg: #0d0c14;
+    --surface: #17151f;
+    --line: rgba(220, 210, 255, 0.12);
+    --text: #f2f0fa;
+    --muted: #a39fb8;
+    --font-display: 'Dela Gothic One', 'M PLUS Rounded 1c', system-ui, sans-serif;
+    --font-body: 'M PLUS Rounded 1c', system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-body);
+    padding: max(28px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    background-image: radial-gradient(circle at 20% -10%, rgba(120, 90, 220, 0.18), transparent 45%), radial-gradient(circle at 110% 30%, rgba(40, 200, 170, 0.12), transparent 40%);
+  }
+  .wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+  header { display: flex; flex-direction: column; gap: 6px; }
+  .eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 0.24em; color: var(--muted); }
+  h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(28px, 6vw, 44px); line-height: 1.2; text-wrap: balance; }
+  .lead { margin: 0; color: var(--muted); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 18px; }
+  .card {
+    --c0: #222; --c1: #444; --c2: #fff;
+    display: flex; flex-direction: column; text-decoration: none; color: inherit; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 20px; overflow: hidden; min-width: 0;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+  .card:hover, .card:focus-visible { transform: translateY(-3px); border-color: var(--c2); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4); outline: none; }
+  .art {
+    position: relative; height: 150px; display: flex; align-items: center; justify-content: center; overflow: hidden;
+    background: radial-gradient(circle at 70% 30%, var(--c1), var(--c0) 70%);
+  }
+  .art::before, .art::after {
+    content: ""; position: absolute; border-radius: 50%; border: 2px solid var(--c2); opacity: 0.18;
+  }
+  .art::before { width: 220px; height: 220px; }
+  .art::after { width: 320px; height: 320px; opacity: 0.09; }
+  .glyph { position: relative; font-family: var(--font-display); font-size: 76px; line-height: 1; color: var(--c2); text-shadow: 0 0 30px var(--c2); }
+  .body { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; flex: 1; }
+  .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .title { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 24px; }
+  .players { font-size: 12px; font-weight: 700; color: var(--c2); border: 1px solid var(--c2); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  .tagline { margin: 0; font-weight: 800; font-size: 14px; }
+  .desc { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.75; flex: 1; }
+  .play { margin-top: 6px; align-self: flex-start; font-weight: 800; font-size: 15px; color: var(--bg); background: var(--c2); border-radius: 12px; padding: 9px 18px; }
+  .status { color: var(--muted); font-size: 14px; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">GAME SELECT</span>
+    <h1>あそぶゲームを選んでください</h1>
+    <p class="lead">ひとりでも、URLを送ればみんなでも遊べます。</p>
+  </header>
+  <main id="grid" class="grid" aria-live="polite"><p class="status">ゲームを読み込んでいます…</p></main>
+  <footer>セーブはゲームごとに、このブラウザに保存されます。</footer>
+</div>
+<script>
+(function () {
+  const grid = document.getElementById('grid');
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const color = (c, fallback) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : fallback);
+  fetch('/games.json', { cache: 'no-cache' })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((list) => {
+      if (!list.length) { grid.innerHTML = '<p class="status">まだゲームがありません。</p>'; return; }
+      grid.innerHTML = list.map((g) => {
+        const [c0, c1, c2] = g.colors || [];
+        const style = `--c0:${color(c0, '#1b1a26')};--c1:${color(c1, '#3a3550')};--c2:${color(c2, '#e8e4ff')}`;
+        return `<a class="card" href="${esc(g.path)}" style="${style}">
+          <div class="art" aria-hidden="true"><span class="glyph">${esc(g.glyph || g.title.slice(0, 1))}</span></div>
+          <div class="body">
+            <div class="title-row"><h2 class="title">${esc(g.title)}</h2>${g.players ? `<span class="players">${esc(g.players)}</span>` : ''}</div>
+            ${g.tagline ? `<p class="tagline">${esc(g.tagline)}</p>` : ''}
+            ${g.description ? `<p class="desc">${esc(g.description)}</p>` : ''}
+            <span class="play">遊ぶ →</span>
+          </div>
+        </a>`;
+      }).join('');
+    })
+    .catch(() => { grid.innerHTML = '<p class="status">ゲーム一覧を読み込めませんでした。ページを再読み込みしてください。</p>'; });
+})();
+</script>
+</body>
+</html>

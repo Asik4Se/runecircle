@@ -1047,7 +1047,20 @@ const ENC=[
   {easy:[['gargoyle'],['eye'],['shade'],['priest']],normal:[['scout','eye'],['shadowmage','gargoyle'],['scout','scout'],['shadowmage'],['gargoyle','eye'],['golem','scout'],['worm'],['shade','priest'],['worm','eye'],['golem','shadowmage']],elite:[['warlord'],['twinA','twinB'],['shadowknight']],bosses:['dragon','lich','abyss']},
 ];
 // この冒険で各幕に出るボス（オンラインは部屋で共通）
-function bossOf(a){const r=S.run;const L=ENC[a].bosses;const k=r&&r.bosses&&r.bosses[a];return L.includes(k)?k:L[0]}
+function bossOf(a){const r=S.run;const L=ENC[a%3].bosses;let k=r&&r.bosses&&r.bosses[a];
+  // 無限モードの第4幕以降：その周回のボスを決める（オンラインは部屋の数から全員同じに）
+  if(!L.includes(k)&&r&&a>=3){k=L[r.bossSeed?Math.floor(r.bossSeed/Math.pow(7,a%3)+a*11)%L.length:Math.floor(Math.random()*L.length)];(r.bosses=r.bosses||[])[a]=k}
+  return L.includes(k)?k:L[0]}
+// 幕の名前と長さ（無限モードの第4幕以降は 森→墓所→塔 をくり返す）
+const ACT=a=>ACTS[a%3];
+// 幕ごとの敵の強さ。3幕ごと（1周ごと）にさらに強くなる
+// 第4幕以降は、くり返す幕の魔物（森なら第1幕の魔物）を第3幕の強さにそろえてから、1幕ごとにさらに強くする
+const POOL_HP=[1.9,1.41,1],POOL_ATK=[1.74,1.45,1],POOL_BOSS=[2.4,1.6,1];
+function actScale(a,boss){
+  if(a<3)return{hp:DIFF.actHp[a]||1,atk:DIFF.actAtk[a]||1};
+  const k=a%3,g=a-2;
+  return{hp:DIFF.actHp[2]*(boss?POOL_BOSS:POOL_HP)[k]*Math.pow(DIFF.loopHp,g),atk:DIFF.actAtk[2]*POOL_ATK[k]*Math.pow(DIFF.loopAtk,g)};
+}
 function pickBosses(seed){return ENC.map((E,a)=>E.bosses[seed!=null?Math.floor(seed/Math.pow(7,a))%E.bosses.length:Math.floor(Math.random()*E.bosses.length)])}
 const ACTS=[{n:'迷いの森',len:12},{n:'古城の地下墓所',len:14},{n:'魔導の塔・頂上',len:14}];
 const NODES={
@@ -1063,7 +1076,7 @@ const RW={normal:{c:60,r:30,e:9,x:1},elite:{c:0,r:70,e:27,x:3}};
 const PRICE={c:45,r:75,e:120,x:90};
 // 敵の強さの調整値：hp=HP倍率 atk=攻撃・防御・毒・回復の倍率 floor=1階進むごとのHP上昇（ボス以外）
 const DIFF={hp:1.9,atk:1.5,floor:0.03,eliteHp:1.5,eliteAtk:1.2,bossHp:1.7,bossAtk:1.25,
-  actHp:[1,1.35,1.7],actAtk:[1,1.2,1.4]}; // 幕ごとの上乗せ（第1幕・第2幕・第3幕）
+  actHp:[1,1.35,1.7],actAtk:[1,1.2,1.4],loopHp:1.3,loopAtk:1.15} // 無限モードの第4幕以降：1幕ごとにHP×1.3・攻撃×1.15; // 幕ごとの上乗せ（第1幕・第2幕・第3幕）
 
 /* ============ 保存 ============ */
 const MK='runecircle_meta_v1', RK='runecircle_run_v1';
@@ -1124,7 +1137,16 @@ function saveNote(){
   if(LOCAL.state==='none'&&NET.mode==='server')return 'データはこのブラウザにだけ保存されます。ゲームのフォルダを持っている人は、自分の start.bat（Macは start-mac.command）を起動しておくと、このURLで遊んでも進行度がフォルダに保存されます。';
   return 'データはこのブラウザに保存されます。';
 }
-function saveRun(){if(S.run&&!S.run.online)store(RK,S.run)}
+function saveRun(){
+  if(!S.run||S.run.online)return;const r=S.run;
+  // 戦闘中は戦闘の状態も残す（中断して「続きから」で、その戦闘の続きから再開できる）
+  if(S.cb&&!S.cb.online){if(!S.cb.busy&&S.screen==='combat'){const {fxq,...cb}=S.cb;r.cbSave=JSON.parse(JSON.stringify(Object.assign(cb,{hl:-1,busy:false,swap:null})))}}
+  else delete r.cbSave;
+  store(RK,r);
+}
+let saveTimer=null;function saveRunSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(saveRun,250)}
+// 中断できる画面か（報酬を選んでいる途中などは中断しない）
+function canSuspend(){const r=S.run;if(!r||r.online)return false;if(S.screen==='combat')return !!S.cb&&!S.cb.busy;if(S.screen==='event')return !S.evResult;return ['map','shop','camp'].includes(S.screen)}
 
 /* ============ 状態 ============ */
 const S={screen:'title',run:null,cb:null,ui:{sel:null,char:'apprentice',curse:0,confirm:false},queue:[],reward:null,editMode:null,editNote:'',pendingRune:null,pendingMod:null,after:null,cancel:null,evResult:null,endInfo:null};
@@ -1255,9 +1277,9 @@ function makeRun(charId,curse,online){
   ch.runes.forEach((id,i)=>{S.run.board[ch.pos?ch.pos[i]:i].r=mkRune(id);seeRune(id)});
   return S.run;
 }
-function newRun(charId,curse){makeRun(charId,curse,false);meta.runs++;saveMeta();saveRun();beginSetup(()=>goto('map'))}
+function newRun(charId,curse,endless){makeRun(charId,curse,false);if(endless)S.run.endless=true;meta.runs++;saveMeta();saveRun();beginSetup(()=>goto('map'))}
 function genOpts(){
-  const r=S.run,len=ACTS[r.act].len,f=r.floor;
+  const r=S.run,len=ACT(r.act).len,f=r.floor;
   if(f===len-1)return['boss'];
   if(f===0)return['battle'];
   if(f===len-2)return['camp'];
@@ -1276,7 +1298,7 @@ function startNode(t){
   if(t==='treasure'){const id=rollRelics(1,false)[0];S.reward={relic:id};addRelic(id);return goto('treasure')}
 }
 function finishNode(){
-  const r=S.run;const len=ACTS[r.act].len;
+  const r=S.run;const len=ACT(r.act).len;
   if(r.online){r.pending=null;r.shop=null;r.ev=null;netDone();goto('wait');return}
   r.pending=null;r.shop=null;r.ev=null;r.floor++;
   if(r.floor>=len){r.act++;r.floor=0;if(r.act>=1&&!meta.reached2){meta.reached2=true;saveMeta()}}
@@ -1284,6 +1306,15 @@ function finishNode(){
 }
 function endRun(win){
   const r=S.run;
+  if(r.endless){
+    // 無限モード：どこまで進めたかを記録（通常モードのクリア率などには入れない）
+    const reach=r.act*100+r.floor;meta.endless=meta.endless||{best:-1,byChar:{},runs:0};
+    meta.endless.runs++;meta.endless.best=Math.max(meta.endless.best,reach);meta.endless.byChar[r.char]=Math.max(meta.endless.byChar[r.char]==null?-1:meta.endless.byChar[r.char],reach);
+    meta.hist.unshift({t:Date.now(),char:r.char,win:false,endless:true,act:r.act,floor:r.floor,curse:r.curse,kills:r.stats.kills,best:r.stats.bestHit,turns:r.stats.turns,online:!!r.online});
+    meta.hist=meta.hist.slice(0,50);meta.kills=(meta.kills||0)+r.stats.kills;meta.bestHit=Math.max(meta.bestHit,r.stats.bestHit);saveMeta();if(!r.online)drop(RK);
+    S.endInfo={online:!!r.online,win:false,endless:true,act:r.act,floor:r.floor,kills:r.stats.kills,best:r.stats.bestHit,turns:r.stats.turns,char:r.char,curse:r.curse,seed:r.seed};
+    S.run=null;S.cb=null;return goto('end');
+  }
   if(win){meta.clears++;meta.maxCurse=Math.max(meta.maxCurse,Math.min(10,r.curse+1))}
   // 戦績に記録
   const reach=win?999:r.act*100+r.floor;
@@ -1302,9 +1333,10 @@ function endRun(win){
 /* ============ 戦闘 ============ */
 function makeEnemies(kind,n){
   const r=S.run,A=r.act;let ids;
-  if(kind==='boss')ids=[bossOf(A)];else if(kind==='elite')ids=pick(ENC[A].elite);else ids=pick(r.floor<3?ENC[A].easy:ENC[A].normal);
-  const hpM=DIFF.hp*(1+0.08*r.curse)*(kind==='boss'?DIFF.bossHp:(1+DIFF.floor*r.floor)*(kind==='elite'?DIFF.eliteHp:1))*n*(DIFF.actHp[A]||1);
-  const am=(kind==='boss'?DIFF.bossAtk:kind==='elite'?DIFF.eliteAtk:1)*(1+ONLINE_ATK*(n-1))*(DIFF.actAtk[A]||1);
+  const E=ENC[A%3],AS=actScale(A,kind==='boss');
+  if(kind==='boss')ids=[bossOf(A)];else if(kind==='elite')ids=pick(E.elite);else ids=pick(r.floor<3?E.easy:E.normal);
+  const hpM=DIFF.hp*(1+0.08*r.curse)*(kind==='boss'?DIFF.bossHp:(1+DIFF.floor*r.floor)*(kind==='elite'?DIFF.eliteHp:1))*n*AS.hp;
+  const am=(kind==='boss'?DIFF.bossAtk:kind==='elite'?DIFF.eliteAtk:1)*(1+ONLINE_ATK*(n-1))*AS.atk;
   const out=ids.map(id=>mkEnemy(id,hpM,am));
   saveMeta();return out;
 }
@@ -1572,7 +1604,9 @@ async function endTurn(){
 }
 function winCombat(){
   const c=S.cb,r=S.run,kind=c.kind;allRunes().forEach(x=>x.inst.g=0);
-  if(kind==='boss'&&r.act===2){return endRun(true)}
+  if(kind==='boss'&&r.act===2&&!r.endless){return endRun(true)}
+  // 無限モード：はじめて第3幕のボスを倒したら、クリアとして数える（キャラの解放など）
+  if(kind==='boss'&&r.act===2&&r.endless&&!r.cleared){r.cleared=true;meta.clears++;saveMeta()}
   let gold=kind==='boss'?70:kind==='elite'?30+Math.floor(rng()*11):12+Math.floor(rng()*9);
   if(has('purse'))gold=Math.round(gold*1.5);
   r.gold+=gold;
@@ -1628,6 +1662,7 @@ function goto(s){S.screen=s;S.ui.confirm=false;render();window.scrollTo(0,0)}
 function render(){
   const f={title:rTitle,chars:rChars,codex:rCodex,records:rRecords,online:rOnline,lobby:rLobby,wait:rWait,map:rMap,combat:rCombat,reward:rReward,edit:rEdit,camp:rCamp,shop:rShop,event:rEvent,treasure:rTreasure,end:rEnd}[S.screen];
   $app.innerHTML=f();
+  if(S.screen==='combat'&&S.cb&&!S.cb.busy&&S.run&&!S.run.online)saveRunSoon();
   alignSide();
   flushFx();
   if(S.screen==='map'&&S.run&&S.run.online)spinWheel();
@@ -1657,12 +1692,12 @@ function shake(sel){const el=$app.querySelector(sel);if(el){el.classList.remove(
 function hpBar(){const r=S.run;return `<span class="bar"><span style="width:${Math.max(0,r.hp)/r.maxHp*100}%"></span></span>`}
 function relicChips(){const r=S.run;if(!r.relics.length)return '';return `<div class="chips">${r.relics.map(k=>`<button class="chip relic" data-a="relicinfo" data-k="${k}">${RELICS[k].n}</button>`).join('')}</div>`}
 function statusHead(){
-  const r=S.run,len=ACTS[r.act].len;
+  const r=S.run,len=ACT(r.act).len;
   let pg='';for(let i=0;i<len;i++)pg+=`<i class="${i<r.floor?'done':i===r.floor?'now':''}"></i>`;
   return `<div class="panel">
-    <div class="status"><span class="where">第${r.act+1}幕 ${ACTS[r.act].n}</span><span class="small muted num">${r.floor+1} / ${len}階</span></div>
+    <div class="status"><span class="where">第${r.act+1}幕 ${ACT(r.act).n}${r.endless?' <span class="chip c-star">無限</span>':''}</span><span class="small muted num">${r.floor+1} / ${len}階</span></div>
     <div class="progress">${pg}</div>
-    <div class="spread"><span class="num">HP <b>${r.hp}</b> / ${r.maxHp}</span><span class="num" style="color:var(--gold)">${r.gold} G</span></div>
+    <div class="spread"><span class="num">HP <b>${r.hp}</b> / ${r.maxHp}</span><span class="num" style="color:var(--gold)">${r.gold} G${canSuspend()?'　<button class="linkbtn" data-a="suspend">中断する</button>':''}</span></div>
     ${hpBar()}
     ${relicChips()}
     ${S.ui.relicInfo?`<p class="small"><b style="color:var(--gold)">${RELICS[S.ui.relicInfo].n}</b>：${RELICS[S.ui.relicInfo].d}</p>`:''}
@@ -1696,7 +1731,7 @@ function rTitle(){
     <p class="tag">魔法陣にルーンを刻んで戦うローグライト</p>
   </div>
   <div class="menu">
-    ${saved?`<button class="btn primary" data-a="continue">続きから（第${saved.act+1}幕 ${saved.floor+1}階）</button>`:''}
+    ${saved?`<button class="btn primary" data-a="continue">続きから（${saved.endless?'無限・':''}第${saved.act+1}幕 ${saved.floor+1}階${saved.cbSave?'・戦闘中':''}）</button>`:''}
     <button class="btn ${saved?'':'primary'}" data-a="tochars">はじめから</button>
     <button class="btn" data-a="toonline">オンラインで遊ぶ（協力）</button>
     <button class="btn ghost" data-a="torecords">戦績</button>
@@ -1727,12 +1762,24 @@ function rChars(){
       ${ok?`<span class="chips">${ch.runes.map(r=>`<span class="chip">${RUNES[r].n}</span>`).join('')}</span>`:''}
     </button>`}).join('')}</div>
   <div class="panel">
+    <b>モード</b>
+    <div class="tabs"><button class="tab ${!S.ui.endless?'on':''}" data-a="mode" data-k="normal">通常（全3幕）</button><button class="tab ${S.ui.endless?'on':''}" data-a="mode" data-k="endless">無限（負けるまで続く）</button></div>
+    <p class="small muted">${S.ui.endless?'第3幕のボスを倒したあとも、第4幕・第5幕…と森・墓所・塔をくり返して進む。3幕ごとに魔物が大きく強くなる。どこまで進めたかが戦績に残る。':'第3幕のボスを倒すとクリア。'}</p>
+  </div>
+  <div class="panel">
     <div class="spread"><div><b>呪いLv</b><p class="small muted">上げるほど魔物が強くなる。クリアで次のLvが解放される</p></div>
     <div class="stepper"><button class="btn" data-a="curse" data-d="-1" ${S.ui.curse<=0?'disabled':''} aria-label="呪いLvを下げる">−</button><b class="num" style="font-size:18px">${S.ui.curse}</b><button class="btn" data-a="curse" data-d="1" ${S.ui.curse>=maxC?'disabled':''} aria-label="呪いLvを上げる">＋</button></div></div>
   </div>
   <button class="btn primary wide" data-a="start">冒険を始める</button>`;
 }
 const reachText=v=>v==null||v<0?'―':v>=999?'クリア':`第${Math.floor(v/100)+1}幕 ${v%100+1}階`;
+// 無限モードの記録
+function endlessBlock(){
+  const E=meta.endless;if(!E||!E.runs)return '';
+  const rt=v=>v==null||v<0?'―':`第${Math.floor(v/100)+1}幕 ${v%100+1}階`;
+  return `<h3>無限モード</h3><div class="tiles"><div class="tile"><span class="label">挑戦</span><b class="num">${E.runs}</b></div><div class="tile"><span class="label">最高到達</span><b class="num">${rt(E.best)}</b></div></div>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">魔法使い</th><th scope="col">最高到達</th></tr></thead><tbody>${Object.keys(CHARS).map(k=>`<tr><th scope="row">${CHARS[k].n}</th><td>${rt(E.byChar[k])}</td></tr>`).join('')}</tbody></table></div>`;
+}
 function rRecords(){
   const h=meta.hist||[];const lv=S.ui.rlv==null?'all':String(S.ui.rlv);
   const pad=n=>String(n).padStart(2,'0');
@@ -1743,7 +1790,7 @@ function rRecords(){
   const tabs=`<div class="tabs"><button class="tab ${lv==='all'?'on':''}" data-a="rlv" data-k="all">すべて</button>${levels.map(l=>`<button class="tab ${lv===String(l)?'on':''}" data-a="rlv" data-k="${l}">呪いLv${l}</button>`).join('')}</div>`;
   const charTable=src=>`<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">魔法使い</th><th scope="col">挑戦</th><th scope="col">クリア</th><th scope="col">クリア率</th><th scope="col">最高到達</th><th scope="col">最大ダメージ</th><th scope="col">倒した魔物</th></tr></thead><tbody>${Object.keys(CHARS).map(id=>{const b=src[id]||newStat();return `<tr><th scope="row">${CHARS[id].n}</th><td class="num">${b.runs}</td><td class="num">${b.clears}</td><td class="num">${rate(b)}</td><td>${reachText(b.reach)}</td><td class="num">${b.best}</td><td class="num">${b.kills}</td></tr>`}).join('')}</tbody></table></div>`;
   const list=h.filter(x=>lv==='all'||String(x.curse)===lv).slice(0,20);
-  const recent=list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">日時</th><th scope="col">魔法使い</th><th scope="col">結果</th><th scope="col">到達</th><th scope="col">呪いLv</th><th scope="col">倒した魔物</th><th scope="col">最大ダメージ</th><th scope="col">形式</th></tr></thead><tbody>${list.map(x=>`<tr><td class="num">${when(x.t)}</td><td>${CHARS[x.char]?CHARS[x.char].n:''}</td><td><span class="chip ${x.win?'relic':'c-hp'}">${x.win?'クリア':'敗北'}</span></td><td>${x.win?'第3幕まで':`第${x.act+1}幕 ${x.floor+1}階`}</td><td class="num">${x.curse}</td><td class="num">${x.kills}</td><td class="num">${x.best}</td><td>${x.online?'オンライン':'ひとり'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">この呪いLvの記録はまだありません。</p>';
+  const recent=list.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">日時</th><th scope="col">魔法使い</th><th scope="col">結果</th><th scope="col">到達</th><th scope="col">呪いLv</th><th scope="col">倒した魔物</th><th scope="col">最大ダメージ</th><th scope="col">形式</th></tr></thead><tbody>${list.map(x=>`<tr><td class="num">${when(x.t)}</td><td>${CHARS[x.char]?CHARS[x.char].n:''}</td><td><span class="chip ${x.win?'relic':x.endless?'c-star':'c-hp'}">${x.win?'クリア':x.endless?'無限':'敗北'}</span></td><td>${x.win?'第3幕まで':`第${x.act+1}幕 ${x.floor+1}階`}</td><td class="num">${x.curse}</td><td class="num">${x.kills}</td><td class="num">${x.best}</td><td>${x.online?'オンライン':'ひとり'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="muted">この呪いLvの記録はまだありません。</p>';
   let body;
   if(lv==='all'){
     const lvRows=levels.map(l=>{const L=meta.byCurse[l]||newStat();return `<tr><th scope="row"><button class="linkbtn" data-a="rlv" data-k="${l}">呪いLv${l}</button></th><td class="num">${L.runs}</td><td class="num">${L.clears}</td><td class="num">${rate(L)}</td><td>${reachText(L.reach)}</td><td class="num">${L.best}</td><td class="num">${L.kills}</td></tr>`}).join('');
@@ -1751,6 +1798,7 @@ function rRecords(){
     <h3>呪いLvごと</h3>
     <div class="tblwrap"><table class="tbl"><thead><tr><th scope="col">呪いLv</th><th scope="col">挑戦</th><th scope="col">クリア</th><th scope="col">クリア率</th><th scope="col">最高到達</th><th scope="col">最大ダメージ</th><th scope="col">倒した魔物</th></tr></thead><tbody>${lvRows}</tbody></table></div>
     <h3>魔法使いごと（全呪いLv）</h3>${charTable(meta.byChar)}
+    ${endlessBlock()}
     <h3>最近の冒険</h3>${recent}`;
   }else{
     const L=meta.byCurse[lv]||Object.assign(newStat(),{chars:{}});
@@ -1760,7 +1808,7 @@ function rRecords(){
   }
   return `<div class="spread"><h2>戦績</h2><button class="btn ghost" data-a="totitle">戻る</button></div>
   ${tabs}${body}
-  <p class="small muted">記録はこのブラウザに保存されます。最近の冒険は最新20件まで表示します。「すべて」の挑戦回数には、途中であきらめた冒険も含みます。</p>`;
+  <p class="small muted">記録はこのブラウザに保存されます。最近の冒険は最新20件まで表示します。「すべて」の挑戦回数には、途中であきらめた冒険も含みます。無限モードの冒険は、通常モードのクリア数・クリア率には入りません。</p>`;
 }
 function rCodex(){
   const tab=S.ui.ctab||'fire';const RO={c:0,r:1,e:2,x:3};
@@ -1855,7 +1903,7 @@ function rCombat(){
   const infoCell=c.info!=null?(V?V.cells[c.info]:r.board[c.info])||null:null;
   const info=infoCell?infoBlock(infoCell.r,infoCell)+((V?infoCell.sl:c.sealed[c.info]>0)&&infoCell.r?'<p class="small" style="color:var(--star)">このターンは封印されていて発動しない</p>':''):'';
   const label=c.kind==='boss'?'ボス戦':c.kind==='elite'?'精鋭戦':'戦闘';
-  return `<div class="spread small muted"><span>第${r.act+1}幕 ${r.floor+1}階・${label}</span><span class="num">ターン ${c.turn}</span></div>
+  return `<div class="spread small muted"><span>第${r.act+1}幕 ${r.floor+1}階・${label}</span><span class="num">ターン ${c.turn}${canSuspend()?'　<button class="linkbtn" data-a="suspend">中断する</button>':''}</span></div>
   <div class="enemies">${en}</div>
   ${c.online?onlineCombatBar():''}
   <div class="panel player" id="pbar">
@@ -1969,7 +2017,7 @@ function rTreasure(){
 function rEnd(){
   const e=S.endInfo;
   return `<div class="hero"><h1 style="font-size:28px">${e.win?'封印は守られた':'冒険はここで終わった'}</h1>
-    <p class="muted">${e.win?'魔竜は再び眠りについた。塔に朝日が差し込む。':`第${e.act+1}幕 ${ACTS[e.act]?ACTS[e.act].n:''} ${e.floor+1}階で力尽きた。`}</p></div>
+    <p class="muted">${e.win?'魔竜は再び眠りについた。塔に朝日が差し込む。':`${e.endless?'無限モード ':''}第${e.act+1}幕 ${ACT(e.act).n} ${e.floor+1}階で力尽きた。`}</p></div>
   <div class="panel num">
     <div class="spread"><span>魔法使い</span><b>${CHARS[e.char].n}</b></div>
     <div class="spread"><span>呪いLv</span><b>${e.curse}</b></div>
@@ -1996,7 +2044,8 @@ $app.addEventListener('click',ev=>{
     case 'netready':S.ui.netReady=!S.ui.netReady;sendMe();render();break;
     case 'openlocal':location.href='http://localhost:8080/?server='+encodeURIComponent(location.origin)+(S.ui.code?'&code='+encodeURIComponent(S.ui.code):'');break;
     case 'netchar':if(netCharOk(d.k)){S.ui.char=d.k;sendMe();render()}break;
-    case 'netcurse':if(NET.host&&NET.st){const maxC=meta.maxCurse;const cv=Math.max(0,Math.min(maxC,NET.st.curse+Number(d.d)));NET.st.curse=cv;render();post('settings',{curse:cv})}break;
+    case 'netcurse':if(NET.host&&NET.st){const maxC=meta.maxCurse;const cv=Math.max(0,Math.min(maxC,NET.st.curse+Number(d.d)));NET.st.curse=cv;render();post('settings',{curse:cv,endless:!!NET.st.endless})}break;
+    case 'netmode':if(NET.host&&NET.st&&NET.st.phase==='lobby'){NET.st.endless=d.k==='endless';render();post('settings',{curse:NET.st.curse,endless:NET.st.endless})}break;
     case 'netstart':netStart();break;
     case 'vote':netVote(d.k);break;
     case 'netreset':post('reset');break;
@@ -2008,10 +2057,15 @@ $app.addEventListener('click',ev=>{
     case 'noreset':S.ui.confirm=false;render();break;
     case 'doreset':resetAll();S.ui.confirm=false;S.ui.flash='データを初期化しました。';render();break;
     case 'ctab':S.ui.ctab=d.k;render();break;
-    case 'continue':{S.run=load(RK);if(!S.run)return render();allRunes().forEach(x=>{x.inst.id=fixId(x.inst.id)});if(S.run.shop)S.run.shop.runes.forEach(it=>{it.id=fixId(it.id)});if(S.run.tray)S.run.tray.forEach(x=>{if(x)x.id=fixId(x.id)});S.ui.relicInfo=null;const resume=()=>{if(S.run.pending)startNode(S.run.pending);else goto('map')};if(trayLeft())openPlace(resume,'置いていないルーンがある。置く場所を選ぼう');else{S.run.tray=null;resume()}}break;
+    case 'continue':{S.run=load(RK);if(!S.run)return render();allRunes().forEach(x=>{x.inst.id=fixId(x.inst.id)});if(S.run.shop)S.run.shop.runes.forEach(it=>{it.id=fixId(it.id)});if(S.run.tray)S.run.tray.forEach(x=>{if(x)x.id=fixId(x.id)});S.ui.relicInfo=null;const resume=()=>{const r=S.run;
+      // 戦闘の途中で中断していたら、その戦闘の続きから
+      if(r.cbSave&&['battle','elite','boss'].includes(r.pending)){S.cb=Object.assign(r.cbSave,{fxq:[],busy:false,hl:-1,info:null});return goto('combat')}
+      delete r.cbSave;if(r.pending)startNode(r.pending);else goto('map')};if(trayLeft())openPlace(resume,'置いていないルーンがある。置く場所を選ぼう');else{S.run.tray=null;resume()}}break;
+    case 'suspend':if(!canSuspend())break;saveRun();S.run=null;S.cb=null;S.queue=[];S.ui.relicInfo=null;goto('title');break;
     case 'pickchar':S.ui.char=d.k;render();break;
     case 'curse':S.ui.curse=Math.max(0,S.ui.curse+Number(d.d));render();break;
-    case 'start':S.ui.relicInfo=null;newRun(S.ui.char,S.ui.curse);break;
+    case 'start':S.ui.relicInfo=null;newRun(S.ui.char,S.ui.curse,!!S.ui.endless);break;
+    case 'mode':S.ui.endless=d.k==='endless';render();break;
     case 'relicinfo':S.ui.relicInfo=S.ui.relicInfo===d.k?null:d.k;render();break;
     case 'node':S.ui.relicInfo=null;if(!r.online)chooseNode(d.k);break;
     case 'arrange':openEdit('arrange',()=>{saveRun();goto(S.run&&S.run.online?netHome():'map')});break;
@@ -2209,7 +2263,7 @@ function applyState(st){
     return;
   }
   if(!S.run||!S.run.online){makeRun(S.ui.char,st.curse,true);meta.runs++;saveMeta();beginSetup(()=>goto(netHome()))}
-  const r=S.run;if(st.bossSeed)r.bosses=pickBosses(st.bossSeed);
+  const r=S.run;if(st.bossSeed&&r.bossSeed!==st.bossSeed){r.bossSeed=st.bossSeed;r.bosses=pickBosses(st.bossSeed)}r.endless=!!st.endless;
   if(st.stage==='map'){
     const key=st.act+'-'+st.floor;
     if(NET.mapKey!==key){
@@ -2423,7 +2477,7 @@ async function enemyActOnline(e,a){
 function onlineWin(){
   if(!S.run||!S.cb||!S.cb.online)return;
   const r=S.run;if(r.hp<=0)r.hp=Math.max(1,Math.round(r.maxHp*0.25));
-  if(S.cb.kind==='boss'&&r.act===2&&!NET.ended){NET.ended=true;post('finish',{win:true})}
+  if(S.cb.kind==='boss'&&r.act===2&&!r.endless&&!NET.ended){NET.ended=true;post('finish',{win:true})}
   winCombat();
 }
 
@@ -2466,9 +2520,10 @@ function rLobby(){
   <h3>参加者 ${peers.length}人</h3><div class="party">${list}</div>
   <div class="panel"><b>使う魔法使い</b><div class="tabs">${chars}</div><p class="small muted">使える属性：${CHARS[S.ui.char].els.map(e=>EL[e].n).join('・')}</p><p class="small muted">選べるキャラはホストの進行度に合わせている。${lockedNote?'まだ選べない：'+lockedNote:''}</p></div>
   ${NET.host?`<div class="panel"><div class="spread"><b>呪いLv</b><div class="stepper"><button class="btn" data-a="netcurse" data-d="-1" ${st.curse<=0||inGame?'disabled':''} aria-label="呪いLvを下げる">−</button><b class="num" style="font-size:18px">${st.curse}</b><button class="btn" data-a="netcurse" data-d="1" ${st.curse>=maxC||inGame?'disabled':''} aria-label="呪いLvを上げる">＋</button></div></div>
+      <div class="tabs"><button class="tab ${!st.endless?'on':''}" data-a="netmode" data-k="normal" ${inGame?'disabled':''}>通常（全3幕）</button><button class="tab ${st.endless?'on':''}" data-a="netmode" data-k="endless" ${inGame?'disabled':''}>無限（全員倒れるまで）</button></div>
       <p class="small muted">いまの人数（${n}人）なら、魔物のHP ×${n}、攻撃 ×${(1+ONLINE_ATK*(n-1)).toFixed(2)}</p>
       <button class="btn primary wide" data-a="netstart" ${!allReady||inGame?'disabled':''}>${allReady?'冒険を始める':'全員の準備を待っています'}</button></div>`
-    :`<div class="panel"><p class="small muted">呪いLv ${st.curse}（ホストが決める）</p><button class="btn ${S.ui.netReady?'':'primary'} wide" data-a="netready" ${inGame?'disabled':''}>${S.ui.netReady?'準備を取り消す':'準備OK'}</button></div>`}
+    :`<div class="panel"><p class="small muted">呪いLv ${st.curse}・${st.endless?'無限モード（全員倒れるまで続く）':'通常モード（全3幕）'}（ホストが決める）</p><button class="btn ${S.ui.netReady?'':'primary'} wide" data-a="netready" ${inGame?'disabled':''}>${S.ui.netReady?'準備を取り消す':'準備OK'}</button></div>`}
   ${NET.err?`<p class="small" style="color:var(--hp)">${NET.err}</p>`:''}`;
 }
 function rWait(){

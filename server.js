@@ -50,7 +50,7 @@ function livePlayers(room) { return room.players.filter(p => p.inGame && isOnlin
 
 /* 行き先の候補（ブラウザ版と同じ決まり。各幕の1〜3階は精鋭を出さない） */
 function genOpts(act, floor) {
-  const len = ACTS[act];
+  const len = ACTS[act % 3]; // 無限モードでは第4幕から森・墓所・塔をくり返す
   if (floor === len - 1) return ['boss'];
   if (floor === 0) return ['battle'];
   if (floor === len - 2) return ['camp'];
@@ -113,8 +113,8 @@ function tryAdvance(room) {
   const live = livePlayers(room);
   if (!live.length || !live.every(p => p.done === room.nodeKey)) return;
   let act = room.act, floor = room.floor + 1;
-  if (floor >= ACTS[act]) { act++; floor = 0; }
-  if (act > 2) { room.stage = 'end'; room.result = 'win'; touch(room); return; }
+  if (floor >= ACTS[act % 3]) { act++; floor = 0; }
+  if (act > 2 && !room.endless) { room.stage = 'end'; room.result = 'win'; touch(room); return; }
   room.act = act; room.floor = floor; room.opts = genOpts(act, floor);
   room.stage = 'map'; room.node = null; room.nodeKey = null; room.cs = null; resetVote(room);
   touch(room);
@@ -123,7 +123,7 @@ function tryAdvance(room) {
 function publicRoom(room, viewerId) {
   return {
     code: room.code, phase: room.phase, stage: room.stage, hostId: room.hostId, curse: room.curse,
-    act: room.act, floor: room.floor, opts: room.opts, node: room.node, nodeKey: room.nodeKey, evSeed: room.evSeed || 0, prog: room.prog || null, bossSeed: room.bossSeed || 0,
+    act: room.act, floor: room.floor, opts: room.opts, endless: !!room.endless, node: room.node, nodeKey: room.nodeKey, evSeed: room.evSeed || 0, prog: room.prog || null, bossSeed: room.bossSeed || 0,
     vote: room.vote, cs: room.cs, result: room.result, rev: room.rev, serverNow: now(), you: viewerId || null,
     players: room.players.filter(p => !p.left || p.inGame).map(p => ({
       id: p.id, name: p.name, char: p.char, ready: p.ready, hp: p.hp, max: p.max, lantern: p.lantern,
@@ -221,6 +221,7 @@ async function handleApi(req, res, url) {
       if (!isHost) return send(res, 403, { error: 'ホストだけが変更できます' });
       if (room.phase !== 'lobby') return send(res, 409, { error: '始まってからは変更できません' });
       room.curse = Math.max(0, Math.min(10, Math.floor(Number(body.curse) || 0)));
+      if (body.endless !== undefined) room.endless = !!body.endless; // 無限モード（負けるまで続く）
       touch(room);
       return send(res, 200, { ok: true });
     }

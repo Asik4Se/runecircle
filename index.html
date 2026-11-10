@@ -131,6 +131,7 @@ button.chip{cursor:pointer}
 .rv{font-size:clamp(11px,3vw,13px);font-weight:700;color:var(--ec);font-variant-numeric:tabular-nums;line-height:1.1}
 .rv .g{color:var(--forest);font-size:.85em}
 .view-label{color:var(--gold);margin-bottom:-4px}
+.codebox{width:100%;box-sizing:border-box;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;word-break:break-all;resize:vertical;min-height:84px}
 .rv2{font-size:clamp(9px,2.4vw,11px);line-height:1.1;color:var(--ec);opacity:.85;font-variant-numeric:tabular-nums;text-align:center;max-width:100%;overflow-wrap:anywhere}
 .mod{position:absolute;top:2px;right:3px;font-size:9.5px;font-weight:700;padding:0 4px;border-radius:4px;background:var(--gold);color:#221c10}
 .seal{position:absolute;inset:0;border-radius:9px;display:grid;place-items:center;background:color-mix(in srgb,#000 55%,transparent);font-family:var(--display);font-size:22px;color:var(--star)}
@@ -1660,7 +1661,7 @@ const EVENTS=[
 const $app=document.getElementById('app'),$fx=document.getElementById('fx');
 function goto(s){S.screen=s;S.ui.confirm=false;render();window.scrollTo(0,0)}
 function render(){
-  const f={title:rTitle,chars:rChars,codex:rCodex,records:rRecords,online:rOnline,lobby:rLobby,wait:rWait,map:rMap,combat:rCombat,reward:rReward,edit:rEdit,camp:rCamp,shop:rShop,event:rEvent,treasure:rTreasure,end:rEnd}[S.screen];
+  const f={transfer:rTransfer,title:rTitle,chars:rChars,codex:rCodex,records:rRecords,online:rOnline,lobby:rLobby,wait:rWait,map:rMap,combat:rCombat,reward:rReward,edit:rEdit,camp:rCamp,shop:rShop,event:rEvent,treasure:rTreasure,end:rEnd}[S.screen];
   $app.innerHTML=f();
   if(S.screen==='combat'&&S.cb&&!S.cb.busy&&S.run&&!S.run.online)saveRunSoon();
   alignSide();
@@ -1736,6 +1737,7 @@ function rTitle(){
     <button class="btn" data-a="toonline">オンラインで遊ぶ（協力）</button>
     <button class="btn ghost" data-a="torecords">戦績</button>
     <button class="btn ghost" data-a="tocodex">魔導書（図鑑）　ルーン ${nr} / ${tr}</button>
+    <button class="btn ghost" data-a="totransfer">データの引き継ぎ（別の端末へ）</button>
   </div>
   <div class="panel small">
     <div class="spread"><span>クリア回数 <b class="num">${meta.clears}</b></span><span>最大ダメージ <b class="num">${meta.bestHit}</b></span><span>挑戦 <b class="num">${meta.runs}</b></span></div>
@@ -2061,6 +2063,17 @@ $app.addEventListener('click',ev=>{
       // 戦闘の途中で中断していたら、その戦闘の続きから
       if(r.cbSave&&['battle','elite','boss'].includes(r.pending)){S.cb=Object.assign(r.cbSave,{fxq:[],busy:false,hl:-1,info:null});return goto('combat')}
       delete r.cbSave;if(r.pending)startNode(r.pending);else goto('map')};if(trayLeft())openPlace(resume,'置いていないルーンがある。置く場所を選ぼう');else{S.run.tray=null;resume()}}break;
+    case 'totransfer':S.ui.xfer={};goto('transfer');break;
+    case 'xfermake':{const X=S.ui.xfer;X.msg='作成中…';X.err=false;render();makeTransferCode(X.pass||'').then(c=>{X.code=c;X.msg='引き継ぎコードを作りました'+(X.pass?'（合言葉つき）':'');render()}).catch(e=>{X.msg='作れませんでした：'+e.message;X.err=true;render()})}break;
+    case 'xfercopy':copyText(S.ui.xfer.code||'').then(ok=>{S.ui.xfer.msg=ok?'コピーしました':'コピーできませんでした。コードの欄を長押し（またはクリック）して全部選んでコピーしてください';S.ui.xfer.err=!ok;render()});break;
+    case 'xfercsv':{const ok=downloadText('runecircle-save.csv',xferCSV(S.ui.xfer.code||''),'text/csv');S.ui.xfer.msg=ok?'CSVファイルをダウンロードしました（runecircle-save.csv）':'ダウンロードできませんでした。コピーで引き継いでください';S.ui.xfer.err=!ok;render()}break;
+    case 'xferread':{const X=S.ui.xfer;X.msg='確認中…';X.err=false;X.data=null;render();readTransferCode(X.input,X.pass2||'').then(d=>{X.data=d;X.msg='';render()}).catch(e=>{X.msg=e.message;X.err=true;render()})}break;
+    case 'xfercancel':S.ui.xfer.data=null;render();break;
+    case 'xferapply':{const X=S.ui.xfer,d=X.data;if(!d)break;
+      fixMeta(d.meta);saveMeta();
+      if(d.run)store(RK,d.run);else drop(RK);
+      if(d.nick){S.ui.nick=d.nick;try{localStorage.setItem('runecircle_nick',d.nick)}catch(e){}}
+      S.run=null;S.cb=null;S.ui.xfer={};S.ui.flash='引き継ぎコードのデータを読み込みました';goto('title')}break;
     case 'suspend':if(!canSuspend())break;saveRun();S.run=null;S.cb=null;S.queue=[];S.ui.relicInfo=null;goto('title');break;
     case 'pickchar':S.ui.char=d.k;render();break;
     case 'curse':S.ui.curse=Math.max(0,S.ui.curse+Number(d.d));render();break;
@@ -2148,7 +2161,89 @@ $app.addEventListener('input',ev=>{
   if(t.id==='nick'){S.ui.nick=t.value.slice(0,10);try{localStorage.setItem('runecircle_nick',S.ui.nick)}catch(e){}pushLocal()}
   if(t.id==='code')S.ui.code=t.value.slice(0,4);
   if(t.id==='hosturl')S.ui.hostUrl=t.value.slice(0,200);
+  const X=S.ui.xfer=S.ui.xfer||{};
+  if(t.id==='xpass')X.pass=t.value.slice(0,40);
+  if(t.id==='xpass2')X.pass2=t.value.slice(0,40);
+  if(t.id==='xin')X.input=t.value;
 });
+// 引き継ぎ：ファイルを選んだら中身を読む
+$app.addEventListener('change',ev=>{
+  const t=ev.target;if(t.id!=='xfile'||!t.files||!t.files[0])return;
+  const fr=new FileReader();fr.onload=()=>{const X=S.ui.xfer=S.ui.xfer||{};const m=String(fr.result||'').match(/RC1-[A-Za-z0-9_-]+/);X.input=m?m[0]:'';X.msg=m?'ファイルから引き継ぎコードを読み取りました。「読み込む」を押してください':'このファイルには引き継ぎコードが見つかりません';X.err=!m;render()};fr.readAsText(t.files[0]);
+});
+
+
+/* ============ セーブの引き継ぎ（暗号化した引き継ぎコード） ============
+   進行度（解放・戦績・図鑑）と、続きからのデータを1つのコードにまとめる。
+   中身は SHA-256 を使った暗号（鍵ストリームで混ぜる）で隠し、HMAC で書き換えを見つける。
+   どのブラウザでも動くように、暗号の計算はこのファイルの中で行う（https でなくても使える）。 */
+const XFER={PREFIX:'RC1-',APP:'runecircle-transfer-v1:9f3c2a7e',ITER:2000};
+const SHA=(()=>{const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+  return function(msg){const l=msg.length,bl=((l+9+63)>>6)<<6,b=new Uint8Array(bl);b.set(msg);b[l]=0x80;const bits=l*8;const dv=new DataView(b.buffer);dv.setUint32(bl-4,bits>>>0);dv.setUint32(bl-8,Math.floor(bits/4294967296));
+    let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;const w=new Uint32Array(64);
+    for(let o=0;o<bl;o+=64){for(let i=0;i<16;i++)w[i]=dv.getUint32(o+i*4);for(let i=16;i<64;i++){const a=w[i-15],c=w[i-2];const s0=((a>>>7)|(a<<25))^((a>>>18)|(a<<14))^(a>>>3),s1=((c>>>17)|(c<<15))^((c>>>19)|(c<<13))^(c>>>10);w[i]=(w[i-16]+s0+w[i-7]+s1)|0}
+      let a=h0,b2=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+      for(let i=0;i<64;i++){const S1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7)),ch=(e&f)^(~e&g),t1=(h+S1+ch+K[i]+w[i])|0,S0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10)),mj=(a&b2)^(a&c)^(b2&c),t2=(S0+mj)|0;h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b2;b2=a;a=(t1+t2)|0}
+      h0=(h0+a)|0;h1=(h1+b2)|0;h2=(h2+c)|0;h3=(h3+d)|0;h4=(h4+e)|0;h5=(h5+f)|0;h6=(h6+g)|0;h7=(h7+h)|0}
+    const out=new Uint8Array(32),ov=new DataView(out.buffer);[h0,h1,h2,h3,h4,h5,h6,h7].forEach((x,i)=>ov.setUint32(i*4,x));return out}})();
+const u8=s=>new TextEncoder().encode(s),cat=(...a)=>{const n=a.reduce((x,y)=>x+y.length,0),o=new Uint8Array(n);let p=0;for(const x of a){o.set(x,p);p+=x.length}return o};
+function hmac(key,msg){if(key.length>64)key=SHA(key);const k=new Uint8Array(64);k.set(key);const ip=k.map(x=>x^0x36),op=k.map(x=>x^0x5c);return SHA(cat(op,SHA(cat(ip,msg))))}
+function xferKey(salt,pass){let k=SHA(cat(u8(XFER.APP+'|'+(pass||'')),salt));for(let i=0;i<XFER.ITER;i++)k=SHA(cat(k,salt));return{enc:SHA(cat(k,u8('enc'))),mac:SHA(cat(k,u8('mac')))}}
+function keystream(key,nonce,len){const out=new Uint8Array(len);for(let i=0,ctr=0;i<len;ctr++){const blk=SHA(cat(key,nonce,new Uint8Array([ctr>>>24,ctr>>>16&255,ctr>>>8&255,ctr&255])));for(let j=0;j<32&&i<len;j++)out[i++]=blk[j]}return out}
+const b64e=b=>{let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
+const b64d=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const t=atob(s),o=new Uint8Array(t.length);for(let i=0;i<t.length;i++)o[i]=t.charCodeAt(i);return o};
+const rnd=n=>{const o=new Uint8Array(n);try{crypto.getRandomValues(o)}catch(e){for(let i=0;i<n;i++)o[i]=Math.floor(Math.random()*256)}return o};
+async function zip(b,inflate){try{if(typeof CompressionStream==='undefined')return null;const cs=inflate?new DecompressionStream('deflate-raw'):new CompressionStream('deflate-raw');const st=new Blob([b]).stream().pipeThrough(cs);return new Uint8Array(await new Response(st).arrayBuffer())}catch(e){return null}}
+// 引き継ぎコードを作る
+async function makeTransferCode(pass){
+  const data={v:1,t:Date.now(),meta,run:load(RK),nick:S.ui.nick||''};
+  let body=u8(JSON.stringify(data)),flags=0;const z=await zip(body,false);if(z&&z.length<body.length){body=z;flags|=1}
+  const salt=rnd(8),nonce=rnd(12),k=xferKey(salt,pass);
+  const ct=body.map((x,i)=>x),ks=keystream(k.enc,nonce,ct.length);for(let i=0;i<ct.length;i++)ct[i]^=ks[i];
+  const head=new Uint8Array([1,flags|(pass?2:0)]);const tag=hmac(k.mac,cat(head,salt,nonce,ct)).subarray(0,16);
+  return XFER.PREFIX+b64e(cat(head,salt,nonce,ct,tag));
+}
+// 引き継ぎコードを読む（合言葉が違う・壊れている・書き換えられている場合はエラー）
+async function readTransferCode(text,pass){
+  const m=String(text||'').match(/RC1-[A-Za-z0-9_-]+/);if(!m)throw new Error('引き継ぎコードが見つかりません');
+  let all;try{all=b64d(m[0].slice(XFER.PREFIX.length))}catch(e){throw new Error('引き継ぎコードが壊れています')}
+  if(all.length<2+8+12+16||all[0]!==1)throw new Error('引き継ぎコードが壊れているか、対応していない版です');
+  const head=all.subarray(0,2),salt=all.subarray(2,10),nonce=all.subarray(10,22),ct=all.slice(22,all.length-16),tag=all.subarray(all.length-16);
+  if((head[1]&2)&&!pass)throw new Error('このコードには合言葉が必要です');
+  const k=xferKey(salt,pass);const t2=hmac(k.mac,cat(head,salt,nonce,ct)).subarray(0,16);
+  if(t2.some((x,i)=>x!==tag[i]))throw new Error((head[1]&2)?'合言葉が違うか、コードが書き換えられています':'コードが途中で切れているか、書き換えられています');
+  const ks=keystream(k.enc,nonce,ct.length);for(let i=0;i<ct.length;i++)ct[i]^=ks[i];
+  let body=ct;if(head[1]&1){body=await zip(ct,true);if(!body)throw new Error('このブラウザでは読み込めません（新しいブラウザでお試しください）')}
+  const data=JSON.parse(new TextDecoder().decode(body));if(!data||data.v!==1||!data.meta)throw new Error('引き継ぎコードの中身が正しくありません');
+  return data;
+}
+function xferCSV(code){const d=new Date();const p=n=>String(n).padStart(2,'0');return '﻿game,version,created,clears,runs,code\r\nrunecircle,1,'+`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`+`,${meta.clears},${meta.runs},${code}\r\n`}
+function downloadText(name,text,type){try{const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);return true}catch(e){return false}}
+async function copyText(text){try{await navigator.clipboard.writeText(text);return true}catch(e){try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();return ok}catch(e2){return false}}}
+function rTransfer(){
+  const X=S.ui.xfer=S.ui.xfer||{};
+  const prev=X.data?`<div class="panel confirm"><p><b>このデータで上書きしますか？</b></p>
+    <p class="small">作った日時：${new Date(X.data.t).toLocaleString('ja-JP')}<br>クリア ${X.data.meta.clears||0}回・挑戦 ${X.data.meta.runs||0}回・図鑑のルーン ${Object.keys((X.data.meta.seen||{}).runes||{}).length}種${X.data.run?`<br>続きから：${X.data.run.endless?'無限・':''}第${X.data.run.act+1}幕 ${X.data.run.floor+1}階`:''}</p>
+    <p class="small" style="color:var(--hp)">いまこのブラウザにあるデータ（続きから・戦績・図鑑・解放）は消えて、引き継ぎコードの内容に置きかわります。</p>
+    <div class="row end"><button class="btn ghost" data-a="xfercancel">やめる</button><button class="btn primary" data-a="xferapply">上書きする</button></div></div>`:'';
+  return `<div class="spread"><h2>データの引き継ぎ</h2><button class="btn ghost" data-a="totitle">戻る</button></div>
+  <div class="panel"><h3>引き継ぎコードを作る</h3>
+    <p class="small muted">いまのデータ（解放・戦績・図鑑・続きから）を、暗号化した引き継ぎコードにします。別の端末やブラウザで読み込むと、同じ状態から遊べます。</p>
+    <label class="label" for="xpass">合言葉（なくてもよい）</label><input id="xpass" class="field" value="${esc(X.pass||'')}" autocomplete="off" placeholder="決めると、読み込むときに同じ合言葉が必要">
+    <button class="btn primary wide" data-a="xfermake">引き継ぎコードを作る</button>
+    ${X.code?`<textarea class="field codebox" readonly rows="4" id="xcode">${X.code}</textarea>
+      <div class="row"><button class="btn" data-a="xfercopy">コピーする</button><button class="btn" data-a="xfercsv">CSVでダウンロード</button></div>
+      <p class="small muted">コードは ${X.code.length.toLocaleString()} 文字です。途中が欠けると読み込めないので、全部コピーしてください。</p>`:''}
+  </div>
+  <div class="panel"><h3>引き継ぎコードを読み込む</h3>
+    <label class="label" for="xin">コードを貼りつける</label><textarea id="xin" class="field codebox" rows="4" placeholder="RC1- から始まるコード">${esc(X.input||'')}</textarea>
+    <label class="label" for="xfile">またはファイルを選ぶ（CSV・テキスト）</label><input id="xfile" type="file" accept=".csv,.txt,text/csv,text/plain" class="field">
+    <label class="label" for="xpass2">合言葉（作るときに決めた場合）</label><input id="xpass2" class="field" value="${esc(X.pass2||'')}" autocomplete="off">
+    <button class="btn primary wide" data-a="xferread">読み込む</button>
+    ${prev}
+  </div>
+  ${X.msg?`<p class="small" style="color:${X.err?'var(--hp)':'var(--good)'}">${esc(X.msg)}</p>`:''}`;
+}
 
 /* ============ オンライン協力プレイ（サーバー版） ============ */
 // オンライン大富豪と同じ方式：server.js が部屋と進行を持ち、ブラウザは定期的に状態を取りに行く（ポーリング）。

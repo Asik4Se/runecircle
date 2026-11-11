@@ -1077,7 +1077,7 @@ const RW={normal:{c:60,r:30,e:9,x:1},elite:{c:0,r:70,e:27,x:3}};
 const PRICE={c:45,r:75,e:120,x:90};
 // 敵の強さの調整値：hp=HP倍率 atk=攻撃・防御・毒・回復の倍率 floor=1階進むごとのHP上昇（ボス以外）
 const DIFF={hp:1.9,atk:1.5,floor:0.03,eliteHp:1.5,eliteAtk:1.2,bossHp:1.7,bossAtk:1.25,
-  actHp:[1,1.6,2.3],actAtk:[1,1.35,1.75],loopHp:1.45,loopAtk:1.25}; // 幕ごとの上乗せ（第1幕・第2幕・第3幕）。無限モードの第4幕以降は1幕ごとにHP×1.45・攻撃×1.25
+  actHp:[1,1.6,2.3],actAtk:[1,1.15,1.3],loopHp:1.45,loopAtk:1.08}; // 幕ごとの上乗せ（第1幕・第2幕・第3幕）。無限モードの第4幕以降は1幕ごとにHP×1.45・攻撃×1.08
 
 /* ============ 保存 ============ */
 const MK='runecircle_meta_v1', RK='runecircle_run_v1';
@@ -1296,7 +1296,7 @@ function startNode(t){
   if(t==='camp')return goto('camp');
   if(t==='shop'){if(!r.shop)genShop();saveRun();return goto('shop')}
   if(t==='event'){if(!r.ev)r.ev=pick(EVENTS).id;S.evResult=null;saveRun();return goto('event')}
-  if(t==='treasure'){const id=rollRelics(1,false)[0];S.reward={relic:id};addRelic(id);return goto('treasure')}
+  if(t==='treasure'){const id=rollRelics(1,false)[0];S.reward={relic:id,gold:id?0:80};if(id)addRelic(id);else r.gold+=80;return goto('treasure')}
 }
 function finishNode(){
   const r=S.run;const len=ACT(r.act).len;
@@ -1617,7 +1617,8 @@ function winCombat(){
   if(kind==='elite'){S.queue.push({t:'mod',opts:shuffle(Object.keys(MODS)).slice(0,2)});S.queue.push({t:'runes',opts:rollRunes(3,'elite')})}
   if(kind==='boss'){
     r.hp=Math.min(r.maxHp,r.hp+Math.round(r.maxHp*0.3));
-    S.queue.push({t:'relic',opts:rollRelics(3,true)});
+    // 秘宝をすべて持っているときは、代わりにゴールド
+    {const o=rollRelics(3,true);if(o.length)S.queue.push({t:'relic',opts:o});else{const g=150;r.gold+=g;S.queue.push({t:'relic',opts:[],gold:g})}}
     if(r.N<5)S.queue.push({t:'expand'});
   }
   S.reward={gold,kind};S.cb=null;saveRun();goto('reward');
@@ -1935,6 +1936,7 @@ function rReward(){
   if(!q)return head;
   if(q.t==='runes'){const sp=hasSpace();return `${head}<h3>ルーンを1つ選ぶ</h3>${sp?'':`<div class="panel confirm"><p class="small">${FULL_NOTE}</p></div>`}<div class="cards">${q.opts.map(id=>runeCard(id,`data-a="pickrune" data-k="${id}" ${sp?'':'disabled'}`)).join('')}</div><button class="btn ${sp?'ghost':'primary'} wide" data-a="skip">受け取らない</button>`}
   if(q.t==='mod')return `${head}<h3>紋章を1つ選ぶ</h3><p class="small muted">選んだ紋章は魔法陣のマスに刻む。マスに付くので、ルーンを入れ替えても残る。</p><div class="cards">${q.opts.map(m=>`<button class="rcard" data-a="pickmod" data-k="${m}"><span class="nm">${MODS[m].n}</span><span class="d">${MODS[m].d}</span></button>`).join('')}</div><button class="btn ghost wide" data-a="skip">受け取らない</button>`;
+  if(q.t==='relic'&&!q.opts.length)return `${head}<div class="panel"><h3>秘宝</h3><p>秘宝はすべて手に入れている。代わりに <b style="color:var(--gold)">${q.gold||0} ゴールド</b> を受け取った。</p><button class="btn primary wide" data-a="skip">次へ</button></div>`;
   if(q.t==='relic')return `${head}<h3>秘宝を1つ選ぶ</h3><div class="cards">${q.opts.map(k=>`<button class="rcard" data-a="pickrelic" data-k="${k}"><span class="nm" style="color:var(--gold)">${RELICS[k].n}</span><span class="d">${RELICS[k].d}</span>${RELICS[k].boss?'<span class="rar">ボス秘宝</span>':''}</button>`).join('')}</div>`;
   if(q.t==='expand')return `${head}<div class="panel"><h3>魔法陣が${S.run.N+1}×${S.run.N+1}に広がる</h3><p class="small">新しいマスにルーンを置いて、組み替えよう。マナは3のままなので、どこに何を置くかがより大事になる。</p><button class="btn primary" data-a="doexpand">魔法陣を組み替える</button></div>`;
   return head;
@@ -2014,7 +2016,7 @@ function rEvent(){
 }
 function rTreasure(){
   const id=S.reward&&S.reward.relic;
-  return `${statusHead()}<div class="panel"><h2>宝箱</h2><p>${id?`中には<b style="color:var(--gold)">${RELICS[id].n}</b>が入っていた。<br>${RELICS[id].d}`:'宝箱は空だった。'}</p><button class="btn primary" data-a="leave">先へ進む</button></div>`;
+  return `${statusHead()}<div class="panel"><h2>宝箱</h2><p>${id?`中には<b style="color:var(--gold)">${RELICS[id].n}</b>が入っていた。<br>${RELICS[id].d}`:`秘宝はすべて手に入れている。宝箱には <b style="color:var(--gold)">${S.reward&&S.reward.gold||0} ゴールド</b> が入っていた。`}</p><button class="btn primary" data-a="leave">先へ進む</button></div>`;
 }
 function rEnd(){
   const e=S.endInfo;
